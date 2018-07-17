@@ -106,7 +106,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\include;"..\..\..\include";..\..\OSC\src;"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include";..\thirdparty\sdl2-2.0.3\include;..\headers</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;"..\..\..\include";..\..\OSC\src;"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include";..\thirdparty\sdl2-2.0.3\include;../headers;../shared</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32_WINNT=0x0601;_WINDOWS;NOMINMAX;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -159,7 +159,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\include;"..\..\..\include";..\..\OSC\src;"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include";..\thirdparty\sdl2-2.0.3\include;..\headers</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;"..\..\..\include";..\..\OSC\src;"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include";..\thirdparty\sdl2-2.0.3\include;../headers;../shared</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32_WINNT=0x0601;_WINDOWS;NOMINMAX;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader />

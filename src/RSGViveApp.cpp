@@ -5,6 +5,7 @@
 // from hellovr_opengl_main.cpp
 //#include <SDL.h>
 #include <openvr.h>
+#include "Matrices.cpp"
 
 using namespace ci;
 using namespace ci::app;
@@ -41,8 +42,9 @@ class RSGViveApp : public App {
 	void draw() override;
 
 	// from hellovr_opengl_main.cpp
-	RSGViveApp(int argc, char *argv[]);
-	virtual ~RSGViveApp();
+	//RSGViveApp(int argc, char *argv[]);
+	//RSGViveApp();
+	//virtual ~RSGViveApp();
 
 	bool bInit();
 	bool bInitGL();
@@ -51,6 +53,31 @@ class RSGViveApp : public App {
 	void shutdown();
 
 	void runMainLoop();
+	bool handleInput();
+	void processVREvent(const vr::VREvent_t & event);
+	void renderFrame();
+
+	bool setupTexturemaps();
+
+	void setupScene();
+	void addCubeToScene( Matrix4 mat, std::vector<float> &verdata );
+	void addCubeToVertex(float f10, float f11, float f12, float f13, float f14, std::vector<float> &verdata);
+
+	void renderControllerAxes();
+
+	bool setupStereoRenderTargets();
+	void setupCompanionWindow();
+	void setupCameras();
+
+	void renderStereoTargets();
+	void renderCompanionWindow();
+	void setupCameras();
+
+	void renderSteroTargets();
+	void renderCompanionWindow();
+	void setupCameras();
+
+	void renderStereoTargets();
 
 };
 
