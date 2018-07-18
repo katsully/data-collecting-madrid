@@ -70,6 +70,9 @@ class RSGViveApp : public App {
 
 	void runMainLoop();
 	bool handleInput();
+	void printPositionData();
+	vr::HmdQuaternion_t getRotation(vr::HmdMatrix34_t matrix);
+	vr::HmdVector3_t getPosition(vr::HmdMatrix34_t matrix);
 	void processVREvent(const vr::VREvent_t & event);
 	void renderFrame();
 
@@ -707,6 +710,9 @@ bool RSGViveApp::handleInput()
 		processVREvent(event);
 	}
 
+	// print position data from vive trackers
+	printPositionData();
+
 	// Process SteamVR action state
 	// UpdateActionState is called each frame to update the state of the actions themselves. The application
 	// controls which action sets are active with the provided array of VRActiveActionSet_t structs.
@@ -780,6 +786,90 @@ bool RSGViveApp::handleInput()
 
 	return bRet;
 }
+
+//-----------------------------------------------------------------------------
+// Purpose: Prints out position (x,y,z) and rotation (qw.qx.qy.qz) into console
+//-----------------------------------------------------------------------------
+void RSGViveApp::printPositionData() {
+
+	// Process StreamVR device states
+	for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
+		if (!m_pHMD->IsTrackedDeviceConnected(unDevice)) {
+			continue;
+		}
+
+		vr::VRControllerState_t state;
+		if (m_pHMD->GetControllerState(unDevice, &state, sizeof(state))) {
+			vr::TrackedDevicePose_t trackedDevicePose;
+			vr::TrackedDevicePose_t trackedControllerPose;
+			vr::VRControllerState_t controllerState;
+			vr::HmdMatrix34_t poseMatrix;
+			vr::HmdVector3_t position;
+			vr::HmdQuaternion_t quaternion;
+			vr::ETrackedDeviceClass trackedDeviceClass = vr::VRSystem()->GetTrackedDeviceClass(unDevice);
+
+			switch (trackedDeviceClass) {
+			case vr::ETrackedDeviceClass::TrackedDeviceClass_HMD: vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, &trackedDevicePose, 1);
+				// print position data for the HMD
+				poseMatrix = trackedDevicePose.mDeviceToAbsoluteTracking;	// This matrix contains all positional and rotational data
+				position = getPosition(trackedDevicePose.mDeviceToAbsoluteTracking);
+				quaternion = getRotation(trackedDevicePose.mDeviceToAbsoluteTracking);
+
+				printDevicePositionalData("HMD", poseMatrix, position, quaternion);
+
+				break;
+
+			case vr::ETrackedDeviceClass::TrackedDeviceClass_GenericTracker: vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, &trackedDevicePose, 1);
+				// print position data for a general vive tracker
+				break;
+
+			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
+				poseMatrix = trackedControllerPose.mDeviceToAbsoluteTracking;	// This matrix contains all positional and rotational data
+				position = GetPosition(trackedControllerPose.mDeviceToAbsoluteTracking);
+				quaternion = GetRotation(trackedControllerPose.mDeviceToAbsoluteTracking);
+
+				auto trackedControllerRole = vr::VRSystem()->GetControllerRoleForTrackedDeviceIndex(unDevice);
+				std::string whichHand = "";
+				if (trackedControllerRole == vr::TrackedControllerRole_LeftHand) {
+					whichHand = "LeftHand";
+				}
+				else if (trackedControllerRole == vr::TrackedControllerRole_RightHand) {
+					whichHand = "RightHand";
+				}
+
+				switch (trackedControllerRole)
+				{
+
+				case vr::TrackedControllerRole_Invalid:
+					// invalid
+					break;
+
+				case vr::TrackedControllerRole_LeftHand:
+				case vr::TrackedControllerRole_RightHand:
+					printDevicePositionData(whichHand.c_str(), poseMatrix, position, quaternion);
+
+					break;
+
+				}
+
+				break;
+			}
+		}
+	}
+
+}
+
+vr::HmdQuaternion_t RSGViveApp::getRotation(vr::HmdMatrix34_t matrix) {
+	vr::HmdQuaternion_t q;
+
+	q.w = sqrt(fmax(0, 1 + matrix.m[0][0] + matrix.m[1][1]))
+}
+
+vr::HmdVector3_t RSGViveApp::getPosition(vr::HmdMatrix34_t matrix) {
+
+}
+
+void RSGViveApp::printDevicePositionData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::)
 
 //-----------------------------------------------------------------------------
 // Purpose:
