@@ -73,6 +73,7 @@ class RSGViveApp : public App {
 	void printPositionData();
 	vr::HmdQuaternion_t getRotation(vr::HmdMatrix34_t matrix);
 	vr::HmdVector3_t getPosition(vr::HmdMatrix34_t matrix);
+	void printDevicePositionalData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::HmdVector3_t position, vr::HmdQuaternion_t quaternion);
 	void processVREvent(const vr::VREvent_t & event);
 	void renderFrame();
 
@@ -825,8 +826,8 @@ void RSGViveApp::printPositionData() {
 
 			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
 				poseMatrix = trackedControllerPose.mDeviceToAbsoluteTracking;	// This matrix contains all positional and rotational data
-				position = GetPosition(trackedControllerPose.mDeviceToAbsoluteTracking);
-				quaternion = GetRotation(trackedControllerPose.mDeviceToAbsoluteTracking);
+				position = getPosition(trackedControllerPose.mDeviceToAbsoluteTracking);
+				quaternion = getRotation(trackedControllerPose.mDeviceToAbsoluteTracking);
 
 				auto trackedControllerRole = vr::VRSystem()->GetControllerRoleForTrackedDeviceIndex(unDevice);
 				std::string whichHand = "";
@@ -846,7 +847,7 @@ void RSGViveApp::printPositionData() {
 
 				case vr::TrackedControllerRole_LeftHand:
 				case vr::TrackedControllerRole_RightHand:
-					printDevicePositionData(whichHand.c_str(), poseMatrix, position, quaternion);
+					printDevicePositionalData(whichHand.c_str(), poseMatrix, position, quaternion);
 
 					break;
 
@@ -862,14 +863,53 @@ void RSGViveApp::printPositionData() {
 vr::HmdQuaternion_t RSGViveApp::getRotation(vr::HmdMatrix34_t matrix) {
 	vr::HmdQuaternion_t q;
 
-	q.w = sqrt(fmax(0, 1 + matrix.m[0][0] + matrix.m[1][1]))
+	q.w = sqrt(fmax(0, 1 + matrix.m[0][0] + matrix.m[1][1] + matrix.m[2][2])) / 2;
+	q.x = sqrt(fmax(0, 1 + matrix.m[0][0] - matrix.m[1][1] - matrix.m[2][2])) / 2;
+	q.y = sqrt(fmax(0, 1 - matrix.m[0][0] + matrix.m[1][1] - matrix.m[2][2])) / 2;
+	q.z = sqrt(fmax(0, 1 - matrix.m[0][0] - matrix.m[1][1] + matrix.m[2][2])) / 2;
+	q.x = copysign(q.x, matrix.m[2][1] - matrix.m[1][2]);
+	q.y = copysign(q.y, matrix.m[0][2] - matrix.m[2][0]);
+	q.z = copysign(q.z, matrix.m[1][0] - matrix.m[0][1]);
+	return q;
 }
 
 vr::HmdVector3_t RSGViveApp::getPosition(vr::HmdMatrix34_t matrix) {
+	vr::HmdVector3_t vector;
 
+	vector.v[0] = matrix.m[0][3];
+	vector.v[1] = matrix.m[1][3];
+	vector.v[2] = matrix.m[2][3];
+
+	return vector;
 }
 
-void RSGViveApp::printDevicePositionData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::)
+void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::HmdVector3_t position, vr::HmdQuaternion_t quaternion) {
+	LARGE_INTEGER qpc; // Query Performance Counter for Acquiring high-resolution time stamps.
+					   // From MSDN: "QPC is typically the best method to use to time-stamp events and 
+					   // measure small time intervals that occur on the same system or virtual machine.
+	QueryPerformanceCounter(&qpc);
+
+	//float sizeX = 0;
+	//float sizeZ = 0;
+	//vr::IVRChaperone* chap;
+	//vr::IVRChaperone::GetPlayAreaSize(&sizeX, &sizeZ);
+
+
+	// Print position and quaternion (rotation).
+	dprintf("\n%lld, %s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
+		qpc.QuadPart, deviceName,
+		position.v[0], position.v[1], position.v[2],
+		quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+
+
+	// Uncomment this if you want to print entire transform matrix that contains both position and rotation matrix.
+	//dprintf("\n%lld,%s,%.5f,%.5f,%.5f,x: %.5f,%.5f,%.5f,%.5f,y: %.5f,%.5f,%.5f,%.5f,z: %.5f,qw: %.5f,qx: %.5f,qy: %.5f,qz: %.5f",
+	//    qpc.QuadPart, whichHand.c_str(),
+	//    posMatrix.m[0][0], posMatrix.m[0][1], posMatrix.m[0][2], posMatrix.m[0][3],
+	//    posMatrix.m[1][0], posMatrix.m[1][1], posMatrix.m[1][2], posMatrix.m[1][3],
+	//    posMatrix.m[2][0], posMatrix.m[2][1], posMatrix.m[2][2], posMatrix.m[2][3],
+	//    quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+}
 
 //-----------------------------------------------------------------------------
 // Purpose:
@@ -1955,6 +1995,38 @@ void CGLRenderModel::Draw()
 
 void RSGViveApp::setup()
 {
+	m_nCompanionWindowWidth = 640;
+		 m_nCompanionWindowHeight=320;
+	 m_unSceneProgramID=0;
+	 m_unCompanionWindowProgramID=0;
+	 m_unControllerTransformProgramID=0;
+	 m_unRenderModelProgramID=0;
+ m_pHMD=NULL;
+	 m_bDebugOpenGL=false;
+	 m_bVerbose=false;
+	 m_bPerf=false;
+	 m_bVblank=false;
+	 m_bGlFinishHack=true;
+	 m_glControllerVertBuffer=0;
+	 m_unControllerVAO=0;
+	 m_unSceneVAO=0;
+	 m_nSceneMatrixLocation=-1;
+	 m_nControllerMatrixLocation=-1;
+	 m_nRenderModelMatrixLocation=-1;
+	 m_iTrackedControllerCount=0;
+	 m_iTrackedControllerCount_Last=-1;
+	 m_iValidPoseCount=0;
+	 m_iValidPoseCount_Last=-1;
+	 m_iSceneVolumeInit=20;
+	 m_strPoseClasses="";
+	 m_bShowCubes=true;
+
+	 bInit();
+	
+	runMainLoop();
+
+
+
 }
 
 void RSGViveApp::mouseDown( MouseEvent event )
