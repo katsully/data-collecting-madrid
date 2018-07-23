@@ -32,11 +32,8 @@ void threadSleep(unsigned long nMilliseconds)
 class CGLRenderModel {
 public:
 	CGLRenderModel(const std::string & srenderModelName);
-	~CGLRenderModel();
 
 	bool bInit(const vr::RenderModel_t & vrModel, const vr::RenderModel_TextureMap_t & vrDiffuseTexture);
-	void Cleanup();
-	void Draw();
 	const std::string & getName() const { return m_sModelName; }
 
 private:
@@ -64,21 +61,16 @@ class RSGViveApp : public App {
 	virtual ~RSGViveApp();
 
 	bool bInit();
-	bool bInitGL();
 	bool bInitCompositor();
 	
 	void shutdown();
 
-	void runMainLoop();
 	bool handleInput();
 	void printPositionData();
 	vr::HmdQuaternion_t getRotation(vr::HmdMatrix34_t matrix);
 	vr::HmdVector3_t getPosition(vr::HmdMatrix34_t matrix);
 	void printDevicePositionalData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::HmdVector3_t position, vr::HmdQuaternion_t quaternion);
 	void processVREvent(const vr::VREvent_t & event);
-	void renderFrame();
-
-	bool setupTexturemaps();
 
 	void setupScene();
 	void addCubeToScene( Matrix4 mat, std::vector<float> &verdata );
@@ -86,23 +78,14 @@ class RSGViveApp : public App {
 
 	void renderControllerAxes();
 
-	bool setupStereoRenderTargets();
 	void setupCompanionWindow();
-	void setupCameras();
-
-	void renderStereoTargets();
-	void renderCompanionWindow();
-	void renderScene(vr::Hmd_Eye nEye);
 	
-	Matrix4 getHMDMatrixProjectionEye(vr::Hmd_Eye nEye);
-	Matrix4 getHMDMatrixPoseEye(vr::Hmd_Eye nEye);
 	Matrix4 getCurrentViewProjectionMatrix(vr::Hmd_Eye nEye);
 	void updateHMDMatrixPose();
 
 	Matrix4 convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPos);
 
 	GLuint compileGLShader(const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader);
-	bool createAllShaders();
 
 	CGLRenderModel *findOrLoadRenderModel(const char *pchRenderModelName);
 
@@ -115,6 +98,8 @@ class RSGViveApp : public App {
 
 private:
 	params::InterfaceGlRef mParams;
+
+	vec2 trackerPos = vec2(0,0);
 
 	bool m_bDebugOpenGL;
 	bool m_bVerbose;
@@ -147,11 +132,9 @@ private:
 	};
 	ControllerInfo_t m_rHand[2];
 private: // SDL bookkeeping
-	//SDL_Window *m_pCompanionWindow;
 	uint32_t m_nCompanionWindowWidth;
 	uint32_t m_nCompanionWindowHeight;
 
-	//SDL_GLContext m_pContext;
 
 private: // OpenGL bookkeeping
 	int m_iTrackedControllerCount;
@@ -247,6 +230,11 @@ private: // OpenGL bookkeeping
 	vr::VRActionSetHandle_t m_actionsetDemo = vr::k_ulInvalidActionSetHandle;
 };
 
+void prepareSettings(RSGViveApp::Settings* settings)
+{
+	settings->setWindowSize(800, 800);
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 // Purpose: Returns true if the action is active and had a rising edge
 //---------------------------------------------------------------------------------------------------------------------
@@ -336,8 +324,6 @@ void dprintf(const char *fmt, ...)
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
 RSGViveApp::RSGViveApp(int argc, char *argv[])
-	//: m_pCompanionWindow(NULL)
-	//, m_pContext(NULL)
 	: m_nCompanionWindowWidth(640)
 	, m_nCompanionWindowHeight(320)
 	, m_unSceneProgramID(0)
@@ -345,6 +331,7 @@ RSGViveApp::RSGViveApp(int argc, char *argv[])
 	, m_unControllerTransformProgramID(0)
 	, m_unRenderModelProgramID(0)
 	, m_pHMD(NULL)
+	, chap(NULL)
 	, m_bDebugOpenGL(false)
 	, m_bVerbose(false)
 	, m_bPerf(false)
@@ -432,79 +419,19 @@ std::string GetTrackedDeviceString(vr::TrackedDeviceIndex_t unDevice, vr::Tracke
 //-----------------------------------------------------------------------------
 bool RSGViveApp::bInit()
 {
-	//if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
-	//{
-	//	printf("%s - SDL could not initialize! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
-	//	return false;
-	//}
 
 	// Loading the SteamVR Runtime
 	vr::EVRInitError eError = vr::VRInitError_None;
 	m_pHMD = vr::VR_Init(&eError, vr::VRApplication_Scene);
-	chap = vr::VRChaperone();
+	
 
-	//if (eError != vr::VRInitError_None)
-	//{
-	//	m_pHMD = NULL;
-	//	char buf[1024];
-	//	sprintf_s(buf, sizeof(buf), "Unable to init VR runtime: %s", vr::VR_GetVRInitErrorAsEnglishDescription(eError));
-	//	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "VR_Init Failed", buf, NULL);
-	//	return false;
-	//}
-
-
-	//int nWindowPosX = 700;
-	//int nWindowPosY = 100;
-	//Uint32 unWindowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
-
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-	////SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-	//SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
-	//SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
-	//if (m_bDebugOpenGL)
-	//	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
-
-	//m_pCompanionWindow = SDL_CreateWindow("hellovr", nWindowPosX, nWindowPosY, m_nCompanionWindowWidth, m_nCompanionWindowHeight, unWindowFlags);
-	//if (m_pCompanionWindow == NULL)
-	//{
-	//	printf("%s - Window could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
-	//	return false;
-	//}
-
-	//m_pContext = SDL_GL_CreateContext(m_pCompanionWindow);
-	//if (m_pContext == NULL)
-	//{
-	//	printf("%s - OpenGL context could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
-	//	return false;
-	//}
-
-	//glewExperimental = GL_TRUE;
-	//GLenum nGlewError = glewInit();
-	//if (nGlewError != GLEW_OK)
-	//{
-	//	printf("%s - Error initializing GLEW! %s\n", __FUNCTION__, glewGetErrorString(nGlewError));
-	//	return false;
-	//}
-	//glGetError(); // to clear the error caused deep in GLEW
-
-	//if (SDL_GL_SetSwapInterval(m_bVblank ? 1 : 0) < 0)
-	//{
-	//	printf("%s - Warning: Unable to set VSync! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
-	//	return false;
-	//}
-
-
-	//m_strDriver = "No Driver";
-	//m_strDisplay = "No Display";
-
-	//m_strDriver = GetTrackedDeviceString(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
-	//m_strDisplay = GetTrackedDeviceString(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
-
-	//std::string strWindowTitle = "hellovr - " + m_strDriver + " " + m_strDisplay;
-	//SDL_SetWindowTitle(m_pCompanionWindow, strWindowTitle.c_str());
+	if (eError != vr::VRInitError_None)
+	{
+		m_pHMD = NULL;
+		char buf[1024];
+		sprintf_s(buf, sizeof(buf), "Unable to init VR runtime: %s", vr::VR_GetVRInitErrorAsEnglishDescription(eError));
+		return false;
+	}
 
 	//// cube array
 	m_iSceneVolumeWidth = m_iSceneVolumeInit;
@@ -522,12 +449,6 @@ bool RSGViveApp::bInit()
 
 	// 		m_MillisecondsTimer.start(1, this);
 	// 		m_SecondsTimer.start(1000, this);
-
-	if (!bInitGL())
-	{
-		printf("%s - Unable to initialize OpenGL!\n", __FUNCTION__);
-		return false;
-	}
 
 	if (!bInitCompositor())
 	{
@@ -552,6 +473,13 @@ bool RSGViveApp::bInit()
 	vr::VRInput()->GetInputSourceHandle("/user/hand/right", &m_rHand[Right].m_source);
 	vr::VRInput()->GetActionHandle("/actions/demo/in/Hand_Right", &m_rHand[Right].m_actionPose);
 
+	vr::VRChaperone()->GetCalibrationState();
+	vr::VRChaperoneSetup()->RevertWorkingCopy();
+	float *posX = 0;
+	float *posZ = 0;
+	vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(posX, posZ);
+	dprintf("PosX:%f PosZ:%f\n", posX, posZ);
+	
 	return true;
 }
 
@@ -563,33 +491,6 @@ bool RSGViveApp::bInit()
 void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
 	dprintf("GL Error: %s\n", message);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Initialize OpenGL. Returns true if OpenGL has been successfully
-//          initialized, false if shaders could not be created.
-//          If failure occurred in a module other than shaders, the function
-//          may return true or throw an error. 
-//-----------------------------------------------------------------------------
-bool RSGViveApp::bInitGL()
-{
-	if (m_bDebugOpenGL)
-	{
-		glDebugMessageCallback((GLDEBUGPROC)DebugCallback, nullptr);
-		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-	}
-
-	if (!createAllShaders())
-		return false;
-
-	setupTexturemaps();
-	setupScene();
-	setupCameras();
-	setupStereoRenderTargets();
-	setupCompanionWindow();
-
-	return true;
 }
 
 
@@ -696,26 +597,6 @@ bool RSGViveApp::handleInput()
 	//SDL_Event sdlEvent;
 	bool bRet = false;
 
-	/*while (SDL_PollEvent(&sdlEvent) != 0)
-	{
-		if (sdlEvent.type == SDL_QUIT)
-		{
-			bRet = true;
-		}
-		else if (sdlEvent.type == SDL_KEYDOWN)
-		{
-			if (sdlEvent.key.keysym.sym == SDLK_ESCAPE
-				|| sdlEvent.key.keysym.sym == SDLK_q)
-			{
-				bRet = true;
-			}
-			if (sdlEvent.key.keysym.sym == SDLK_c)
-			{
-				m_bShowCubes = !m_bShowCubes;
-			}
-		}
-	}
-*/
 	// Process SteamVR events
 	vr::VREvent_t event;
 	while (m_pHMD->PollNextEvent(&event, sizeof(event)))
@@ -807,9 +688,9 @@ void RSGViveApp::printPositionData() {
 
 	//tryinfg room scaling
 
-	float *posX = 0;
-	float *posZ = 0;
-	chap->GetPlayAreaSize(posX, posZ);
+	/*float *posX = 0;
+	float *posZ = 0;*/
+	//chap->GetPlayAreaSize(posX, posZ);
 
 	//dprintf("PosX:%f PosZ:%f\n", posX, posZ);
 	
@@ -927,7 +808,15 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		quaternion.w, quaternion.x, quaternion.y, quaternion.z);
 */
 	if (strcmp(deviceName, "LeftHand") == 0) {
-		//dprintf("\n%s", "here");
+
+			//map(position.v[0], -2, 2, 0, 800)
+			//map(value, start1, stop1, start2, stop2)
+			//start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1))
+		float newX = 800 * ((position.v[0] - -2) / (2 - -2));
+		float newZ = 800 * ((position.v[2] - -2) / (2.3 - -2));
+		trackerPos = vec2(newX, newZ);
+
+		dprintf("\n PosX:%f PosZ:%f", newX, newZ);
 
 		if (position.v[0] > maxX) {
 			maxX = position.v[0];
@@ -949,7 +838,7 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		}
 	}
 
-	dprintf("Max X:%f Min X:%f Max Y:%f Min Y:%f Max Z:%f Min Z:%f\n", maxX, minX, maxY, minY, maxZ, minZ);
+	dprintf("Min X:%f Max X:%f Min Z:%f Max Z:%f\n", minX, maxX, minZ, maxZ);
 
 
 	// Uncomment this if you want to print entire transform matrix that contains both position and rotation matrix.
@@ -959,26 +848,6 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 	//    posMatrix.m[1][0], posMatrix.m[1][1], posMatrix.m[1][2], posMatrix.m[1][3],
 	//    posMatrix.m[2][0], posMatrix.m[2][1], posMatrix.m[2][2], posMatrix.m[2][3],
 	//    quaternion.w, quaternion.x, quaternion.y, quaternion.z);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void RSGViveApp::runMainLoop()
-{
-	bool bQuit = false;
-
-	//SDL_StartTextInput();
-	//SDL_ShowCursor(SDL_DISABLE);
-
-	while (!bQuit)
-	{
-		bQuit = handleInput();
-
-		renderFrame();
-	}
-
-	//SDL_StopTextInput();
 }
 
 //-----------------------------------------------------------------------------
@@ -1001,64 +870,6 @@ void RSGViveApp::processVREvent(const vr::VREvent_t & event)
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void RSGViveApp::renderFrame()
-{
-	// for now as fast as possible
-	if (m_pHMD)
-	{
-		renderControllerAxes();
-		renderStereoTargets();
-		renderCompanionWindow();
-
-		vr::Texture_t leftEyeTexture = { (void*)(uintptr_t)leftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
-		vr::Texture_t rightEyeTexture = { (void*)(uintptr_t)rightEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
-	}
-
-	if (m_bVblank && m_bGlFinishHack)
-	{
-		//$ HACKHACK. From gpuview profiling, it looks like there is a bug where two renders and a present
-		// happen right before and after the vsync causing all kinds of jittering issues. This glFinish()
-		// appears to clear that up. Temporary fix while I try to get nvidia to investigate this problem.
-		// 1/29/2014 mikesart
-		glFinish();
-	}
-
-	// SwapWindow
-	/*{
-		SDL_GL_SwapWindow(m_pCompanionWindow);
-	}*/
-
-	// Clear
-	{
-		// We want to make sure the glFinish waits for the entire present to complete, not just the submission
-		// of the command. So, we do a clear here right here so the glFinish will wait fully for the swap.
-		glClearColor(0, 0, 0, 1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	}
-
-	// Flush and wait for swap.
-	if (m_bVblank)
-	{
-		glFlush();
-		glFinish();
-	}
-
-	// Spew out the controller and pose count whenever they change.
-	if (m_iTrackedControllerCount != m_iTrackedControllerCount_Last || m_iValidPoseCount != m_iValidPoseCount_Last)
-	{
-		m_iValidPoseCount_Last = m_iValidPoseCount;
-		m_iTrackedControllerCount_Last = m_iTrackedControllerCount;
-
-		dprintf("PoseCount:%d(%s) Controllers:%d\n", m_iValidPoseCount, m_strPoseClasses.c_str(), m_iTrackedControllerCount);
-	}
-
-	updateHMDMatrixPose();
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: Compiles a GL shader program and returns the handle. Returns 0 if
@@ -1118,177 +929,6 @@ GLuint RSGViveApp::compileGLShader(const char *pchShaderName, const char *pchVer
 	return unProgramID;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Creates all the shaders used by HelloVR SDL
-//-----------------------------------------------------------------------------
-bool RSGViveApp::createAllShaders()
-{
-	m_unSceneProgramID = compileGLShader(
-		"Scene",
-
-		// Vertex Shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec2 v2UVcoordsIn;\n"
-		"layout(location = 2) in vec3 v3NormalIn;\n"
-		"out vec2 v2UVcoords;\n"
-		"void main()\n"
-		"{\n"
-		"	v2UVcoords = v2UVcoordsIn;\n"
-		"	gl_Position = matrix * position;\n"
-		"}\n",
-
-		// Fragment Shader
-		"#version 410 core\n"
-		"uniform sampler2D mytexture;\n"
-		"in vec2 v2UVcoords;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = texture(mytexture, v2UVcoords);\n"
-		"}\n"
-	);
-	m_nSceneMatrixLocation = glGetUniformLocation(m_unSceneProgramID, "matrix");
-	if (m_nSceneMatrixLocation == -1)
-	{
-		dprintf("Unable to find matrix uniform in scene shader\n");
-		return false;
-	}
-
-	m_unControllerTransformProgramID = compileGLShader(
-		"Controller",
-
-		// vertex shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 v3ColorIn;\n"
-		"out vec4 v4Color;\n"
-		"void main()\n"
-		"{\n"
-		"	v4Color.xyz = v3ColorIn; v4Color.a = 1.0;\n"
-		"	gl_Position = matrix * position;\n"
-		"}\n",
-
-		// fragment shader
-		"#version 410\n"
-		"in vec4 v4Color;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = v4Color;\n"
-		"}\n"
-	);
-	m_nControllerMatrixLocation = glGetUniformLocation(m_unControllerTransformProgramID, "matrix");
-	if (m_nControllerMatrixLocation == -1)
-	{
-		dprintf("Unable to find matrix uniform in controller shader\n");
-		return false;
-	}
-
-	m_unRenderModelProgramID = compileGLShader(
-		"render model",
-
-		// vertex shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 v3NormalIn;\n"
-		"layout(location = 2) in vec2 v2TexCoordsIn;\n"
-		"out vec2 v2TexCoord;\n"
-		"void main()\n"
-		"{\n"
-		"	v2TexCoord = v2TexCoordsIn;\n"
-		"	gl_Position = matrix * vec4(position.xyz, 1);\n"
-		"}\n",
-
-		//fragment shader
-		"#version 410 core\n"
-		"uniform sampler2D diffuse;\n"
-		"in vec2 v2TexCoord;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = texture( diffuse, v2TexCoord);\n"
-		"}\n"
-
-	);
-	m_nRenderModelMatrixLocation = glGetUniformLocation(m_unRenderModelProgramID, "matrix");
-	if (m_nRenderModelMatrixLocation == -1)
-	{
-		dprintf("Unable to find matrix uniform in render model shader\n");
-		return false;
-	}
-
-	m_unCompanionWindowProgramID = compileGLShader(
-		"CompanionWindow",
-
-		// vertex shader
-		"#version 410 core\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec2 v2UVIn;\n"
-		"noperspective out vec2 v2UV;\n"
-		"void main()\n"
-		"{\n"
-		"	v2UV = v2UVIn;\n"
-		"	gl_Position = position;\n"
-		"}\n",
-
-		// fragment shader
-		"#version 410 core\n"
-		"uniform sampler2D mytexture;\n"
-		"noperspective in vec2 v2UV;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"		outputColor = texture(mytexture, v2UV);\n"
-		"}\n"
-	);
-
-	return m_unSceneProgramID != 0
-		&& m_unControllerTransformProgramID != 0
-		&& m_unRenderModelProgramID != 0
-		&& m_unCompanionWindowProgramID != 0;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-bool RSGViveApp::setupTexturemaps()
-{
-	std::string sExecutableDirectory = Path_StripFilename(Path_GetExecutablePath());
-	std::string strFullPath = Path_MakeAbsolute("../cube_texture.png", sExecutableDirectory);
-
-	std::vector<unsigned char> imageRGBA;
-	unsigned nImageWidth, nImageHeight;
-	unsigned nError = lodepng::decode(imageRGBA, nImageWidth, nImageHeight, strFullPath.c_str());
-
-	if (nError != 0)
-		return false;
-
-	glGenTextures(1, &m_iTexture);
-	glBindTexture(GL_TEXTURE_2D, m_iTexture);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, nImageWidth, nImageHeight,
-		0, GL_RGBA, GL_UNSIGNED_BYTE, &imageRGBA[0]);
-
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-	GLfloat fLargest;
-	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	return (m_iTexture != 0);
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: create a sea of cubes
@@ -1513,73 +1153,6 @@ void RSGViveApp::renderControllerAxes()
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void RSGViveApp::setupCameras() {
-
-	m_mat4ProjectionLeft = getHMDMatrixProjectionEye(vr::Eye_Left);
-	m_mat4ProjectionRight = getHMDMatrixProjectionEye(vr::Eye_Right);
-	m_mat4eyePosLeft = getHMDMatrixPoseEye(vr::Eye_Left);
-	m_mat4eyePosRight = getHMDMatrixPoseEye(vr::Eye_Right);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Creates a frame buffer. Returns true if the buffer was set up.
-//          Returns false if the setup failed.
-//-----------------------------------------------------------------------------
-bool RSGViveApp::createFrameBuffer(int nWidth, int nHeight, FramebufferDesc &framebufferDesc)
-{
-	glGenFramebuffers(1, &framebufferDesc.m_nRenderFramebufferId);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nRenderFramebufferId);
-
-	glGenRenderbuffers(1, &framebufferDesc.m_nDepthBufferId);
-	glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, nWidth, nHeight);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
-
-	glGenTextures(1, &framebufferDesc.m_nRenderTextureId);
-	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId);
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, nWidth, nHeight, true);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId, 0);
-
-	glGenFramebuffers(1, &framebufferDesc.m_nResolveFramebufferId);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nResolveFramebufferId);
-
-	glGenTextures(1, &framebufferDesc.m_nResolveTextureId);
-	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId, 0);
-
-	// check FBO status
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if (status != GL_FRAMEBUFFER_COMPLETE)
-	{
-		return false;
-	}
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	return true;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-bool RSGViveApp::setupStereoRenderTargets()
-{
-	if (!m_pHMD)
-		return false;
-
-	m_pHMD->GetRecommendedRenderTargetSize(&m_nRenderWidth, &m_nRenderHeight);
-
-	createFrameBuffer(m_nRenderWidth, m_nRenderHeight, leftEyeDesc);
-	createFrameBuffer(m_nRenderWidth, m_nRenderHeight, rightEyeDesc);
-
-	return true;
-}
 
 //-----------------------------------------------------------------------------
 // Purpose:
@@ -1632,168 +1205,7 @@ void RSGViveApp::setupCompanionWindow()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void RSGViveApp::renderStereoTargets()
-{
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glEnable(GL_MULTISAMPLE);
 
-	// Left Eye
-	glBindFramebuffer(GL_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
-	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight);
-	renderScene(vr::Eye_Left);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	glDisable(GL_MULTISAMPLE);
-
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.m_nResolveFramebufferId);
-
-	glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight,
-		GL_COLOR_BUFFER_BIT,
-		GL_LINEAR);
-
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-	glEnable(GL_MULTISAMPLE);
-
-	// Right Eye
-	glBindFramebuffer(GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId);
-	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight);
-	renderScene(vr::Eye_Right);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	glDisable(GL_MULTISAMPLE);
-
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.m_nResolveFramebufferId);
-
-	glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight,
-		GL_COLOR_BUFFER_BIT,
-		GL_LINEAR);
-
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Renders a scene with respect to nEye.
-//-----------------------------------------------------------------------------
-void RSGViveApp::renderScene(vr::Hmd_Eye nEye)
-{
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
-
-	if (m_bShowCubes)
-	{
-		glUseProgram(m_unSceneProgramID);
-		glUniformMatrix4fv(m_nSceneMatrixLocation, 1, GL_FALSE, getCurrentViewProjectionMatrix(nEye).get());
-		glBindVertexArray(m_unSceneVAO);
-		glBindTexture(GL_TEXTURE_2D, m_iTexture);
-		glDrawArrays(GL_TRIANGLES, 0, m_uiVertcount);
-		glBindVertexArray(0);
-	}
-
-	bool bIsInputAvailable = m_pHMD->IsInputAvailable();
-
-	if (bIsInputAvailable)
-	{
-		// draw the controller axis lines
-		glUseProgram(m_unControllerTransformProgramID);
-		glUniformMatrix4fv(m_nControllerMatrixLocation, 1, GL_FALSE, getCurrentViewProjectionMatrix(nEye).get());
-		glBindVertexArray(m_unControllerVAO);
-		glDrawArrays(GL_LINES, 0, m_uiControllerVertcount);
-		glBindVertexArray(0);
-	}
-
-	// ----- Render Model rendering -----
-	glUseProgram(m_unRenderModelProgramID);
-
-	for (EHand eHand = Left; eHand <= Right; ((int&)eHand)++)
-	{
-		if (!m_rHand[eHand].m_bShowController || !m_rHand[eHand].m_pRenderModel)
-			continue;
-
-		const Matrix4 & matDeviceToTracking = m_rHand[eHand].m_rmat4Pose;
-		Matrix4 matMVP = getCurrentViewProjectionMatrix(nEye) * matDeviceToTracking;
-		glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, matMVP.get());
-
-		//m_rHand[eHand].m_pRenderModel->Draw();
-	}
-
-	glUseProgram(0);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void RSGViveApp::renderCompanionWindow()
-{
-	glDisable(GL_DEPTH_TEST);
-	glViewport(0, 0, m_nCompanionWindowWidth, m_nCompanionWindowHeight);
-
-	glBindVertexArray(m_unCompanionWindowVAO);
-	glUseProgram(m_unCompanionWindowProgramID);
-
-	// render left eye (first half of index array )
-	glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glDrawElements(GL_TRIANGLES, m_uiCompanionWindowIndexSize / 2, GL_UNSIGNED_SHORT, 0);
-
-	// render right eye (second half of index array )
-	glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glDrawElements(GL_TRIANGLES, m_uiCompanionWindowIndexSize / 2, GL_UNSIGNED_SHORT, (const void *)(uintptr_t)(m_uiCompanionWindowIndexSize));
-
-	glBindVertexArray(0);
-	glUseProgram(0);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Gets a Matrix Projection Eye with respect to nEye.
-//-----------------------------------------------------------------------------
-Matrix4 RSGViveApp::getHMDMatrixProjectionEye(vr::Hmd_Eye nEye)
-{
-	if (!m_pHMD)
-		return Matrix4();
-
-	vr::HmdMatrix44_t mat = m_pHMD->GetProjectionMatrix(nEye, m_fNearClip, m_fFarClip);
-
-	return Matrix4(
-		mat.m[0][0], mat.m[1][0], mat.m[2][0], mat.m[3][0],
-		mat.m[0][1], mat.m[1][1], mat.m[2][1], mat.m[3][1],
-		mat.m[0][2], mat.m[1][2], mat.m[2][2], mat.m[3][2],
-		mat.m[0][3], mat.m[1][3], mat.m[2][3], mat.m[3][3]
-	);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Gets an HMDMatrixPoseEye with respect to nEye.
-//-----------------------------------------------------------------------------
-Matrix4 RSGViveApp::getHMDMatrixPoseEye(vr::Hmd_Eye nEye)
-{
-	if (!m_pHMD)
-		return Matrix4();
-
-	vr::HmdMatrix34_t matEyeRight = m_pHMD->GetEyeToHeadTransform(nEye);
-	Matrix4 matrixObj(
-		matEyeRight.m[0][0], matEyeRight.m[1][0], matEyeRight.m[2][0], 0.0,
-		matEyeRight.m[0][1], matEyeRight.m[1][1], matEyeRight.m[2][1], 0.0,
-		matEyeRight.m[0][2], matEyeRight.m[1][2], matEyeRight.m[2][2], 0.0,
-		matEyeRight.m[0][3], matEyeRight.m[1][3], matEyeRight.m[2][3], 1.0f
-	);
-
-	return matrixObj.invert();
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: Gets a Current View Projection Matrix with respect to nEye,
@@ -1950,12 +1362,6 @@ CGLRenderModel::CGLRenderModel(const std::string & sRenderModelName)
 	m_glTexture = 0;
 }
 
-
-CGLRenderModel::~CGLRenderModel()
-{
-	Cleanup();
-}
-
 //-----------------------------------------------------------------------------
 // Purpose: Allocates and populates the GL resources for a render model
 //-----------------------------------------------------------------------------
@@ -2011,36 +1417,6 @@ bool CGLRenderModel::bInit(const vr::RenderModel_t & vrModel, const vr::RenderMo
 	return true;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Frees the GL resources for a render model
-//-----------------------------------------------------------------------------
-void CGLRenderModel::Cleanup()
-{
-	if (m_glVertBuffer)
-	{
-		glDeleteBuffers(1, &m_glIndexBuffer);
-		glDeleteVertexArrays(1, &m_glVertArray);
-		glDeleteBuffers(1, &m_glVertBuffer);
-		m_glIndexBuffer = 0;
-		m_glVertArray = 0;
-		m_glVertBuffer = 0;
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Draws the render model
-//-----------------------------------------------------------------------------
-void CGLRenderModel::Draw()
-{
-	glBindVertexArray(m_glVertArray);
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, m_glTexture);
-
-	glDrawElements(GL_TRIANGLES, m_unVertexCount, GL_UNSIGNED_SHORT, 0);
-
-	glBindVertexArray(0);
-}
 
 
 void RSGViveApp::setup()
@@ -2074,8 +1450,6 @@ void RSGViveApp::setup()
 
 	 bInit();
 	
-	//runMainLoop();
-
 	 // set up parameters
 	 // Create the interface and give it a name
 	 mParams = params::InterfaceGl::create(getWindow(), "Ready Set Go", toPixels(ivec2(200, 200)));
@@ -2103,9 +1477,10 @@ void RSGViveApp::draw()
 	gl::clear( Color( 0, 0, 0 ) ); 
 
 	gl::color(Color(1, 0, 0));
-	gl::drawSolidCircle(vec2(100, 100), 25);
+	//gl::drawSolidCircle(vec2(100, 100), 25);
+	gl::drawSolidCircle(trackerPos, 15);
 
 	mParams->draw();
 }
 
-CINDER_APP( RSGViveApp, RendererGl )
+CINDER_APP( RSGViveApp, RendererGl, prepareSettings )
