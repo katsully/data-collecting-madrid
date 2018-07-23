@@ -1,6 +1,7 @@
 #include "cinder/app/App.h"
 #include "cinder/app/RendererGl.h"
 #include "cinder/gl/gl.h"
+#include "cinder/params/Params.h"
 
 // from hellovr_opengl_main.cpp
 #include <Windows.h>
@@ -105,7 +106,16 @@ class RSGViveApp : public App {
 
 	CGLRenderModel *findOrLoadRenderModel(const char *pchRenderModelName);
 
+	float maxX = 0.0;
+	float minX = 100;
+	float maxY = 0.0;
+	float minY = 100;
+	float maxZ = 0.0;
+	float minZ = 100;
+
 private:
+	params::InterfaceGlRef mParams;
+
 	bool m_bDebugOpenGL;
 	bool m_bVerbose;
 	bool m_bPerf;
@@ -113,6 +123,7 @@ private:
 	bool m_bGlFinishHack;
 
 	vr::IVRSystem *m_pHMD;
+	vr::IVRChaperone *chap;
 	std::string m_strDriver;
 	std::string m_strDisplay;
 	vr::TrackedDevicePose_t m_rTrackedDevicePose[vr::k_unMaxTrackedDeviceCount];
@@ -430,6 +441,7 @@ bool RSGViveApp::bInit()
 	// Loading the SteamVR Runtime
 	vr::EVRInitError eError = vr::VRInitError_None;
 	m_pHMD = vr::VR_Init(&eError, vr::VRApplication_Scene);
+	chap = vr::VRChaperone();
 
 	//if (eError != vr::VRInitError_None)
 	//{
@@ -793,6 +805,16 @@ bool RSGViveApp::handleInput()
 //-----------------------------------------------------------------------------
 void RSGViveApp::printPositionData() {
 
+	//tryinfg room scaling
+
+	float *posX = 0;
+	float *posZ = 0;
+	chap->GetPlayAreaSize(posX, posZ);
+
+	//dprintf("PosX:%f PosZ:%f\n", posX, posZ);
+	
+
+
 	// Process StreamVR device states
 	for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
 		if (!m_pHMD->IsTrackedDeviceConnected(unDevice)) {
@@ -817,6 +839,7 @@ void RSGViveApp::printPositionData() {
 				quaternion = getRotation(trackedDevicePose.mDeviceToAbsoluteTracking);
 
 				printDevicePositionalData("HMD", poseMatrix, position, quaternion);
+
 
 				break;
 
@@ -889,17 +912,44 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 					   // measure small time intervals that occur on the same system or virtual machine.
 	QueryPerformanceCounter(&qpc);
 
+	// x axis is left-right, y axis is up-down, z axis is forward-back
+
 	//float sizeX = 0;
 	//float sizeZ = 0;
 	//vr::IVRChaperone* chap;
 	//vr::IVRChaperone::GetPlayAreaSize(&sizeX, &sizeZ);
 
 
-	// Print position and quaternion (rotation).
-	dprintf("\n%lld, %s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
+	 // sPrint position and quaternion (rotation).
+	/*dprintf("\n%lld, %s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
 		qpc.QuadPart, deviceName,
 		position.v[0], position.v[1], position.v[2],
 		quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+*/
+	if (strcmp(deviceName, "LeftHand") == 0) {
+		//dprintf("\n%s", "here");
+
+		if (position.v[0] > maxX) {
+			maxX = position.v[0];
+		}
+		else if (position.v[0] < minX) {
+			minX = position.v[0];
+		}
+		if (position.v[1] > maxY) {
+			maxY = position.v[1];
+		}
+		else if (position.v[1] < minY) {
+			minY = position.v[1];
+		}
+		if (position.v[2] > maxZ) {
+			maxZ = position.v[2];
+		}
+		else if (position.v[2] < minZ) {
+			minZ = position.v[2];
+		}
+	}
+
+	dprintf("Max X:%f Min X:%f Max Y:%f Min Y:%f Max Z:%f Min Z:%f\n", maxX, minX, maxY, minY, maxZ, minZ);
 
 
 	// Uncomment this if you want to print entire transform matrix that contains both position and rotation matrix.
@@ -2002,6 +2052,7 @@ void RSGViveApp::setup()
 	 m_unControllerTransformProgramID=0;
 	 m_unRenderModelProgramID=0;
  m_pHMD=NULL;
+ chap = NULL;
 	 m_bDebugOpenGL=false;
 	 m_bVerbose=false;
 	 m_bPerf=false;
@@ -2023,9 +2074,12 @@ void RSGViveApp::setup()
 
 	 bInit();
 	
-	runMainLoop();
+	//runMainLoop();
 
-
+	 // set up parameters
+	 // Create the interface and give it a name
+	 mParams = params::InterfaceGl::create(getWindow(), "Ready Set Go", toPixels(ivec2(200, 200)));
+	 mParams->addText("TA DA");
 
 }
 
@@ -2035,11 +2089,23 @@ void RSGViveApp::mouseDown( MouseEvent event )
 
 void RSGViveApp::update()
 {
+	bool bQuit = false;
+
+	bQuit = handleInput();
+
+	if (bQuit) {
+		shutdown();
+	}
 }
 
 void RSGViveApp::draw()
 {
 	gl::clear( Color( 0, 0, 0 ) ); 
+
+	gl::color(Color(1, 0, 0));
+	gl::drawSolidCircle(vec2(100, 100), 25);
+
+	mParams->draw();
 }
 
 CINDER_APP( RSGViveApp, RendererGl )
