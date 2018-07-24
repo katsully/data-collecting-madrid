@@ -80,12 +80,9 @@ class RSGViveApp : public App {
 
 	void setupCompanionWindow();
 	
-	Matrix4 getCurrentViewProjectionMatrix(vr::Hmd_Eye nEye);
 	void updateHMDMatrixPose();
 
 	Matrix4 convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPos);
-
-	GLuint compileGLShader(const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader);
 
 	CGLRenderModel *findOrLoadRenderModel(const char *pchRenderModelName);
 
@@ -99,7 +96,9 @@ class RSGViveApp : public App {
 private:
 	params::InterfaceGlRef mParams;
 
-	vec2 trackerPos = vec2(0,0);
+	vec2 trackerPos1 = vec2(0,0);
+	vec2 trackedPos2 = vec2(0,0);
+	float playAreaX, playAreaZ;
 
 	bool m_bDebugOpenGL;
 	bool m_bVerbose;
@@ -475,10 +474,11 @@ bool RSGViveApp::bInit()
 
 	vr::VRChaperone()->GetCalibrationState();
 	vr::VRChaperoneSetup()->RevertWorkingCopy();
-	float *posX = 0;
-	float *posZ = 0;
-	vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(posX, posZ);
-	dprintf("PosX:%f PosZ:%f\n", posX, posZ);
+	vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(&playAreaX, &playAreaZ);
+	// float *posX = 0;
+	// float *posZ = 0;
+	// vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(posX, posZ);
+	dprintf("PosX:%f PosZ:%f\n", playAreaX, playAreaZ);
 	
 	return true;
 }
@@ -528,65 +528,6 @@ void RSGViveApp::shutdown()
 	}*/
 	m_vecRenderModels.clear();
 
-	/*if (m_pContext)
-	{
-		if (m_bDebugOpenGL)
-		{
-			glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_FALSE);
-			glDebugMessageCallback(nullptr, nullptr);
-		}
-		glDeleteBuffers(1, &m_glSceneVertBuffer);
-
-		if (m_unSceneProgramID)
-		{
-			glDeleteProgram(m_unSceneProgramID);
-		}
-		if (m_unControllerTransformProgramID)
-		{
-			glDeleteProgram(m_unControllerTransformProgramID);
-		}
-		if (m_unRenderModelProgramID)
-		{
-			glDeleteProgram(m_unRenderModelProgramID);
-		}
-		if (m_unCompanionWindowProgramID)
-		{
-			glDeleteProgram(m_unCompanionWindowProgramID);
-		}
-
-		glDeleteRenderbuffers(1, &leftEyeDesc.m_nDepthBufferId);
-		glDeleteTextures(1, &leftEyeDesc.m_nRenderTextureId);
-		glDeleteFramebuffers(1, &leftEyeDesc.m_nRenderFramebufferId);
-		glDeleteTextures(1, &leftEyeDesc.m_nResolveTextureId);
-		glDeleteFramebuffers(1, &leftEyeDesc.m_nResolveFramebufferId);
-
-		glDeleteRenderbuffers(1, &rightEyeDesc.m_nDepthBufferId);
-		glDeleteTextures(1, &rightEyeDesc.m_nRenderTextureId);
-		glDeleteFramebuffers(1, &rightEyeDesc.m_nRenderFramebufferId);
-		glDeleteTextures(1, &rightEyeDesc.m_nResolveTextureId);
-		glDeleteFramebuffers(1, &rightEyeDesc.m_nResolveFramebufferId);
-
-		if (m_unCompanionWindowVAO != 0)
-		{
-			glDeleteVertexArrays(1, &m_unCompanionWindowVAO);
-		}
-		if (m_unSceneVAO != 0)
-		{
-			glDeleteVertexArrays(1, &m_unSceneVAO);
-		}
-		if (m_unControllerVAO != 0)
-		{
-			glDeleteVertexArrays(1, &m_unControllerVAO);
-		}
-	}
-	*/
-	//if (m_pCompanionWindow)
-	//{
-	//	SDL_DestroyWindow(m_pCompanionWindow);
-	//	m_pCompanionWindow = NULL;
-	//}
-
-	//SDL_Quit();
 }
 
 //-----------------------------------------------------------------------------
@@ -800,6 +741,9 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 	//vr::IVRChaperone* chap;
 	//vr::IVRChaperone::GetPlayAreaSize(&sizeX, &sizeZ);
 
+	// float posX, posZ;
+	// vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(&posX, &posZ);
+
 
 	 // sPrint position and quaternion (rotation).
 	/*dprintf("\n%lld, %s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
@@ -812,9 +756,10 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 			//map(position.v[0], -2, 2, 0, 800)
 			//map(value, start1, stop1, start2, stop2)
 			//start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1))
+		// TODO: add in playAreaX and playAreaZ
 		float newX = 800 * ((position.v[0] - -2) / (2 - -2));
 		float newZ = 800 * ((position.v[2] - -2) / (2.3 - -2));
-		trackerPos = vec2(newX, newZ);
+		trackerPos1 = vec2(newX, newZ);
 
 		dprintf("\n PosX:%f PosZ:%f", newX, newZ);
 
@@ -836,6 +781,11 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		else if (position.v[2] < minZ) {
 			minZ = position.v[2];
 		}
+	} else if (strcmp(deviceName, "RightHand") == 0) {
+		// TODO: add in playAreaX and playAreaZ
+		float newX = 800 * ((position.v[0] - -2) / (2 - -2));
+		float newZ = 800 * ((position.v[2] - -2) / (2.3 - -2));
+		trackerPos2 = vec2(newX, newZ);
 	}
 
 	dprintf("Min X:%f Max X:%f Min Z:%f Max Z:%f\n", minX, maxX, minZ, maxZ);
@@ -869,66 +819,6 @@ void RSGViveApp::processVREvent(const vr::VREvent_t & event)
 	break;
 	}
 }
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Compiles a GL shader program and returns the handle. Returns 0 if
-//			the shader couldn't be compiled for some reason.
-//-----------------------------------------------------------------------------
-GLuint RSGViveApp::compileGLShader(const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader)
-{
-	GLuint unProgramID = glCreateProgram();
-
-	GLuint nSceneVertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(nSceneVertexShader, 1, &pchVertexShader, NULL);
-	glCompileShader(nSceneVertexShader);
-
-	GLint vShaderCompiled = GL_FALSE;
-	glGetShaderiv(nSceneVertexShader, GL_COMPILE_STATUS, &vShaderCompiled);
-	if (vShaderCompiled != GL_TRUE)
-	{
-		dprintf("%s - Unable to compile vertex shader %d!\n", pchShaderName, nSceneVertexShader);
-		glDeleteProgram(unProgramID);
-		glDeleteShader(nSceneVertexShader);
-		return 0;
-	}
-	glAttachShader(unProgramID, nSceneVertexShader);
-	glDeleteShader(nSceneVertexShader); // the program hangs onto this once it's attached
-
-	GLuint  nSceneFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(nSceneFragmentShader, 1, &pchFragmentShader, NULL);
-	glCompileShader(nSceneFragmentShader);
-
-	GLint fShaderCompiled = GL_FALSE;
-	glGetShaderiv(nSceneFragmentShader, GL_COMPILE_STATUS, &fShaderCompiled);
-	if (fShaderCompiled != GL_TRUE)
-	{
-		dprintf("%s - Unable to compile fragment shader %d!\n", pchShaderName, nSceneFragmentShader);
-		glDeleteProgram(unProgramID);
-		glDeleteShader(nSceneFragmentShader);
-		return 0;
-	}
-
-	glAttachShader(unProgramID, nSceneFragmentShader);
-	glDeleteShader(nSceneFragmentShader); // the program hangs onto this once it's attached
-
-	glLinkProgram(unProgramID);
-
-	GLint programSuccess = GL_TRUE;
-	glGetProgramiv(unProgramID, GL_LINK_STATUS, &programSuccess);
-	if (programSuccess != GL_TRUE)
-	{
-		dprintf("%s - Error linking program %d!\n", pchShaderName, unProgramID);
-		glDeleteProgram(unProgramID);
-		return 0;
-	}
-
-	glUseProgram(unProgramID);
-	glUseProgram(0);
-
-	return unProgramID;
-}
-
 
 //-----------------------------------------------------------------------------
 // Purpose: create a sea of cubes
@@ -1205,27 +1095,6 @@ void RSGViveApp::setupCompanionWindow()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Gets a Current View Projection Matrix with respect to nEye,
-//          which may be an Eye_Left or an Eye_Right.
-//-----------------------------------------------------------------------------
-Matrix4 RSGViveApp::getCurrentViewProjectionMatrix(vr::Hmd_Eye nEye)
-{
-	Matrix4 matMVP;
-	if (nEye == vr::Eye_Left)
-	{
-		matMVP = m_mat4ProjectionLeft * m_mat4eyePosLeft * m_mat4HMDPose;
-	}
-	else if (nEye == vr::Eye_Right)
-	{
-		matMVP = m_mat4ProjectionRight * m_mat4eyePosRight *  m_mat4HMDPose;
-	}
-
-	return matMVP;
-}
-
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -1477,8 +1346,9 @@ void RSGViveApp::draw()
 	gl::clear( Color( 0, 0, 0 ) ); 
 
 	gl::color(Color(1, 0, 0));
-	//gl::drawSolidCircle(vec2(100, 100), 25);
-	gl::drawSolidCircle(trackerPos, 15);
+	gl::drawSolidCircle(trackerPos1, 15);
+	gl::color(Color(0,0,1));
+	gl::drawSolidCircle(trackerPos2, 15);
 
 	mParams->draw();
 }
