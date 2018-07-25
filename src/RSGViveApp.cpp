@@ -1422,13 +1422,13 @@ bool CGLRenderModel::bInit(const vr::RenderModel_t & vrModel, const vr::RenderMo
 void RSGViveApp::setup()
 {
 	m_nCompanionWindowWidth = 640;
-		 m_nCompanionWindowHeight=320;
+    m_nCompanionWindowHeight=320;
 	 m_unSceneProgramID=0;
 	 m_unCompanionWindowProgramID=0;
 	 m_unControllerTransformProgramID=0;
 	 m_unRenderModelProgramID=0;
- m_pHMD=NULL;
- chap = NULL;
+	 m_pHMD=NULL;
+	 chap = NULL;
 	 m_bDebugOpenGL=false;
 	 m_bVerbose=false;
 	 m_bPerf=false;
