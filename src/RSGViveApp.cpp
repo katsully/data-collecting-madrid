@@ -29,21 +29,6 @@ void threadSleep(unsigned long nMilliseconds)
 
 // From hellovr_opengl_maincpp
 // vr namespace comes from openvr.h
-class CGLRenderModel {
-public:
-	CGLRenderModel(const std::string & srenderModelName);
-
-	bool bInit(const vr::RenderModel_t & vrModel, const vr::RenderModel_TextureMap_t & vrDiffuseTexture);
-	const std::string & getName() const { return m_sModelName; }
-
-private:
-	GLuint m_glVertBuffer;
-	GLuint m_glIndexBuffer;
-	GLuint m_glVertArray;
-	GLuint m_glTexture;
-	GLsizei m_unVertexCount;
-	std::string m_sModelName;
-};
 
 static bool g_bPrintf = true;
 
@@ -72,10 +57,6 @@ class RSGViveApp : public App {
 	void printDevicePositionalData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::HmdVector3_t position, vr::HmdQuaternion_t quaternion);
 	void processVREvent(const vr::VREvent_t & event);
 
-	void setupScene();
-	void addCubeToScene( Matrix4 mat, std::vector<float> &verdata );
-	void addCubeVertex(float f10, float f11, float f12, float f13, float f14, std::vector<float> &verdata);
-
 	void renderControllerAxes();
 
 	void setupCompanionWindow();
@@ -84,14 +65,12 @@ class RSGViveApp : public App {
 
 	Matrix4 convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPos);
 
-	CGLRenderModel *findOrLoadRenderModel(const char *pchRenderModelName);
-
-	float maxX = 0.0;
-	float minX = 100;
-	float maxY = 0.0;
-	float minY = 100;
-	float maxZ = 0.0;
-	float minZ = 100;
+	//float maxX = 0.0;
+	//float minX = 100;
+	//float maxY = 0.0;
+	//float minY = 100;
+	//float maxZ = 0.0;
+	//float minZ = 100;
 
 private:
 	params::InterfaceGlRef mParams;
@@ -119,9 +98,6 @@ private:
 		vr::VRActionHandle_t m_actionPose = vr::k_ulInvalidActionHandle;
 		vr::VRActionHandle_t m_actionHaptic = vr::k_ulInvalidActionHandle;
 		Matrix4 m_rmat4Pose;
-		CGLRenderModel *m_pRenderModel = nullptr;
-		std::string m_sRenderModelName;
-		bool m_bShowController;
 	};
 
 	enum EHand
@@ -130,18 +106,9 @@ private:
 		Right = 1,
 	};
 	ControllerInfo_t m_rHand[2];
-private: // SDL bookkeeping
-	uint32_t m_nCompanionWindowWidth;
-	uint32_t m_nCompanionWindowHeight;
 
 
 private: // OpenGL bookkeeping
-	int m_iTrackedControllerCount;
-	int m_iTrackedControllerCount_Last;
-	int m_iValidPoseCount;
-	int m_iValidPoseCount_Last;
-	bool m_bShowCubes;
-	Vector2 m_vAnalogValue;
 
 	std::string m_strPoseClasses;                            // what classes we saw poses for this frame
 	char m_rDevClassChar[vr::k_unMaxTrackedDeviceCount];   // for each device, a character representing its class
@@ -157,16 +124,7 @@ private: // OpenGL bookkeeping
 	float m_fNearClip;
 	float m_fFarClip;
 
-	GLuint m_iTexture;
-
 	unsigned int m_uiVertcount;
-
-	GLuint m_glSceneVertBuffer;
-	GLuint m_unSceneVAO;
-	GLuint m_unCompanionWindowVAO;
-	GLuint m_glCompanionWindowIDVertBuffer;
-	GLuint m_glCompanionWindowIDIndexBuffer;
-	unsigned int m_uiCompanionWindowIndexSize;
 
 	GLuint m_glControllerVertBuffer;
 	GLuint m_unControllerVAO;
@@ -180,44 +138,8 @@ private: // OpenGL bookkeeping
 	Matrix4 m_mat4ProjectionLeft;
 	Matrix4 m_mat4ProjectionRight;
 
-	struct VertexDataScene
-	{
-		Vector3 position;
-		Vector2 texCoord;
-	};
-
-	struct VertexDataWindow
-	{
-		Vector2 position;
-		Vector2 texCoord;
-
-		VertexDataWindow(const Vector2 & pos, const Vector2 tex) : position(pos), texCoord(tex) {	}
-	};
-
-	GLuint m_unSceneProgramID;
-	GLuint m_unCompanionWindowProgramID;
-	GLuint m_unControllerTransformProgramID;
-	GLuint m_unRenderModelProgramID;
-
-	GLint m_nSceneMatrixLocation;
-	GLint m_nControllerMatrixLocation;
-	GLint m_nRenderModelMatrixLocation;
-
-	struct FramebufferDesc
-	{
-		GLuint m_nDepthBufferId;
-		GLuint m_nRenderTextureId;
-		GLuint m_nRenderFramebufferId;
-		GLuint m_nResolveTextureId;
-		GLuint m_nResolveFramebufferId;
-	};
-	FramebufferDesc leftEyeDesc;
-	FramebufferDesc rightEyeDesc;
-
 	uint32_t m_nRenderWidth;
 	uint32_t m_nRenderHeight;
-
-	std::vector< CGLRenderModel * > m_vecRenderModels;
 
 	vr::VRActionHandle_t m_actionHideCubes = vr::k_ulInvalidActionHandle;
 	vr::VRActionHandle_t m_actionHideThisController = vr::k_ulInvalidActionHandle;
@@ -321,13 +243,7 @@ void dprintf(const char *fmt, ...)
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
 RSGViveApp::RSGViveApp(int argc, char *argv[])
-	: m_nCompanionWindowWidth(640)
-	, m_nCompanionWindowHeight(320)
-	, m_unSceneProgramID(0)
-	, m_unCompanionWindowProgramID(0)
-	, m_unControllerTransformProgramID(0)
-	, m_unRenderModelProgramID(0)
-	, m_pHMD(NULL)
+	: m_pHMD(NULL)
 	, chap(NULL)
 	, m_bDebugOpenGL(false)
 	, m_bVerbose(false)
@@ -336,17 +252,8 @@ RSGViveApp::RSGViveApp(int argc, char *argv[])
 	, m_bGlFinishHack(true)
 	, m_glControllerVertBuffer(0)
 	, m_unControllerVAO(0)
-	, m_unSceneVAO(0)
-	, m_nSceneMatrixLocation(-1)
-	, m_nControllerMatrixLocation(-1)
-	, m_nRenderModelMatrixLocation(-1)
-	, m_iTrackedControllerCount(0)
-	, m_iTrackedControllerCount_Last(-1)
-	, m_iValidPoseCount(0)
-	, m_iValidPoseCount_Last(-1)
 	, m_iSceneVolumeInit(20)
 	, m_strPoseClasses("")
-	, m_bShowCubes(true)
 {
 
 	for (int i = 1; i < argc; i++)
@@ -430,23 +337,6 @@ bool RSGViveApp::bInit()
 		return false;
 	}
 
-	//// cube array
-	m_iSceneVolumeWidth = m_iSceneVolumeInit;
-	m_iSceneVolumeHeight = m_iSceneVolumeInit;
-	m_iSceneVolumeDepth = m_iSceneVolumeInit;
-
-	m_fScale = 0.3f;
-	m_fScaleSpacing = 4.0f;
-
-	m_fNearClip = 0.1f;
-	m_fFarClip = 30.0f;
-
-	m_iTexture = 0;
-	m_uiVertcount = 0;
-
-	// 		m_MillisecondsTimer.start(1, this);
-	// 		m_SecondsTimer.start(1000, this);
-
 	if (!bInitCompositor())
 	{
 		printf("%s - Failed to initialize VR Compositor!\n", __FUNCTION__);
@@ -473,7 +363,7 @@ bool RSGViveApp::bInit()
 	vr::VRChaperone()->GetCalibrationState();
 	vr::VRChaperoneSetup()->RevertWorkingCopy();
 	vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(&playAreaX, &playAreaZ);
-	dprintf("PosX:%f PosZ:%f\n", playAreaX, playAreaZ);
+	//dprintf("PosX:%f PosZ:%f\n", playAreaX, playAreaZ);
 	
 	return true;
 }
@@ -517,12 +407,6 @@ void RSGViveApp::shutdown()
 		m_pHMD = NULL;
 	}
 
-	/*for (std::vector< CGLRenderModel * >::iterator i = m_vecRenderModels.begin(); i != m_vecRenderModels.end(); i++)
-	{
-		delete (*i);
-	}*/
-	m_vecRenderModels.clear();
-
 }
 
 //-----------------------------------------------------------------------------
@@ -550,8 +434,6 @@ bool RSGViveApp::handleInput()
 	actionSet.ulActionSet = m_actionsetDemo;
 	vr::VRInput()->UpdateActionState(&actionSet, sizeof(actionSet), 1);
 
-	m_bShowCubes = !GetDigitalActionState(m_actionHideCubes);
-
 	vr::VRInputValueHandle_t ulHapticDevice;
 	if (GetDigitalActionRisingEdge(m_actionTriggerHaptic, &ulHapticDevice))
 	{
@@ -562,55 +444,6 @@ bool RSGViveApp::handleInput()
 		if (ulHapticDevice == m_rHand[Right].m_source)
 		{
 			vr::VRInput()->TriggerHapticVibrationAction(m_rHand[Right].m_actionHaptic, 0, 1, 4.f, 1.0f);
-		}
-	}
-
-	vr::InputAnalogActionData_t analogData;
-	if (vr::VRInput()->GetAnalogActionData(m_actionAnalongInput, &analogData, sizeof(analogData)) == vr::VRInputError_None && analogData.bActive)
-	{
-		m_vAnalogValue[0] = analogData.x;
-		m_vAnalogValue[1] = analogData.y;
-	}
-
-	m_rHand[Left].m_bShowController = true;
-	m_rHand[Right].m_bShowController = true;
-
-	vr::VRInputValueHandle_t ulHideDevice;
-	if (GetDigitalActionState(m_actionHideThisController, &ulHideDevice))
-	{
-		if (ulHideDevice == m_rHand[Left].m_source)
-		{
-			m_rHand[Left].m_bShowController = false;
-		}
-		if (ulHideDevice == m_rHand[Right].m_source)
-		{
-			m_rHand[Right].m_bShowController = false;
-		}
-	}
-
-	for (EHand eHand = Left; eHand <= Right; ((int&)eHand)++)
-	{
-		vr::InputPoseActionData_t poseData;
-		if (vr::VRInput()->GetPoseActionData(m_rHand[eHand].m_actionPose, vr::TrackingUniverseStanding, 0, &poseData, sizeof(poseData)) != vr::VRInputError_None
-			|| !poseData.bActive || !poseData.pose.bPoseIsValid)
-		{
-			m_rHand[eHand].m_bShowController = false;
-		}
-		else
-		{
-			m_rHand[eHand].m_rmat4Pose = convertSteamVRMatrixToMatrix4(poseData.pose.mDeviceToAbsoluteTracking);
-
-			vr::InputOriginInfo_t originInfo;
-			if (vr::VRInput()->GetOriginTrackedDeviceInfo(poseData.activeOrigin, &originInfo, sizeof(originInfo)) == vr::VRInputError_None
-				&& originInfo.trackedDeviceIndex != vr::k_unTrackedDeviceIndexInvalid)
-			{
-				std::string sRenderModelName = GetTrackedDeviceString(originInfo.trackedDeviceIndex, vr::Prop_RenderModelName_String);
-				if (sRenderModelName != m_rHand[eHand].m_sRenderModelName)
-				{
-					m_rHand[eHand].m_pRenderModel = findOrLoadRenderModel(sRenderModelName.c_str());
-					m_rHand[eHand].m_sRenderModelName = sRenderModelName;
-				}
-			}
 		}
 	}
 
@@ -743,7 +576,7 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 
 		dprintf("\n PosX:%f PosZ:%f", newX, newZ);
 
-		if (position.v[0] > maxX) {
+		/*if (position.v[0] > maxX) {
 			maxX = position.v[0];
 		}
 		else if (position.v[0] < minX) {
@@ -760,7 +593,7 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		}
 		else if (position.v[2] < minZ) {
 			minZ = position.v[2];
-		}
+		}*/
 	} else if (strcmp(deviceName, "RightHand") == 0) {
 		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
@@ -800,281 +633,6 @@ void RSGViveApp::processVREvent(const vr::VREvent_t & event)
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: create a sea of cubes
-//-----------------------------------------------------------------------------
-void RSGViveApp::setupScene()
-{
-	if (!m_pHMD)
-		return;
-
-	std::vector<float> vertdataarray;
-
-	Matrix4 matScale;
-	matScale.scale(m_fScale, m_fScale, m_fScale);
-	Matrix4 matTransform;
-	matTransform.translate(
-		-((float)m_iSceneVolumeWidth * m_fScaleSpacing) / 2.f,
-		-((float)m_iSceneVolumeHeight * m_fScaleSpacing) / 2.f,
-		-((float)m_iSceneVolumeDepth * m_fScaleSpacing) / 2.f);
-
-	Matrix4 mat = matScale * matTransform;
-
-	for (int z = 0; z< m_iSceneVolumeDepth; z++)
-	{
-		for (int y = 0; y< m_iSceneVolumeHeight; y++)
-		{
-			for (int x = 0; x< m_iSceneVolumeWidth; x++)
-			{
-				addCubeToScene(mat, vertdataarray);
-				mat = mat * Matrix4().translate(m_fScaleSpacing, 0, 0);
-			}
-			mat = mat * Matrix4().translate(-((float)m_iSceneVolumeWidth) * m_fScaleSpacing, m_fScaleSpacing, 0);
-		}
-		mat = mat * Matrix4().translate(0, -((float)m_iSceneVolumeHeight) * m_fScaleSpacing, m_fScaleSpacing);
-	}
-	m_uiVertcount = vertdataarray.size() / 5;
-
-	glGenVertexArrays(1, &m_unSceneVAO);
-	glBindVertexArray(m_unSceneVAO);
-
-	glGenBuffers(1, &m_glSceneVertBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, m_glSceneVertBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertdataarray.size(), &vertdataarray[0], GL_STATIC_DRAW);
-
-	GLsizei stride = sizeof(VertexDataScene);
-	uintptr_t offset = 0;
-
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-	offset += sizeof(Vector3);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-	glBindVertexArray(0);
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void RSGViveApp::addCubeVertex(float fl0, float fl1, float fl2, float fl3, float fl4, std::vector<float> &vertdata)
-{
-	vertdata.push_back(fl0);
-	vertdata.push_back(fl1);
-	vertdata.push_back(fl2);
-	vertdata.push_back(fl3);
-	vertdata.push_back(fl4);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void RSGViveApp::addCubeToScene(Matrix4 mat, std::vector<float> &vertdata)
-{
-	// Matrix4 mat( outermat.data() );
-
-	Vector4 A = mat * Vector4(0, 0, 0, 1);
-	Vector4 B = mat * Vector4(1, 0, 0, 1);
-	Vector4 C = mat * Vector4(1, 1, 0, 1);
-	Vector4 D = mat * Vector4(0, 1, 0, 1);
-	Vector4 E = mat * Vector4(0, 0, 1, 1);
-	Vector4 F = mat * Vector4(1, 0, 1, 1);
-	Vector4 G = mat * Vector4(1, 1, 1, 1);
-	Vector4 H = mat * Vector4(0, 1, 1, 1);
-
-	// triangles instead of quads
-	addCubeVertex(E.x, E.y, E.z, 0, 1, vertdata); //Front
-	addCubeVertex(F.x, F.y, F.z, 1, 1, vertdata);
-	addCubeVertex(G.x, G.y, G.z, 1, 0, vertdata);
-	addCubeVertex(G.x, G.y, G.z, 1, 0, vertdata);
-	addCubeVertex(H.x, H.y, H.z, 0, 0, vertdata);
-	addCubeVertex(E.x, E.y, E.z, 0, 1, vertdata);
-
-	addCubeVertex(B.x, B.y, B.z, 0, 1, vertdata); //Back
-	addCubeVertex(A.x, A.y, A.z, 1, 1, vertdata);
-	addCubeVertex(D.x, D.y, D.z, 1, 0, vertdata);
-	addCubeVertex(D.x, D.y, D.z, 1, 0, vertdata);
-	addCubeVertex(C.x, C.y, C.z, 0, 0, vertdata);
-	addCubeVertex(B.x, B.y, B.z, 0, 1, vertdata);
-
-	addCubeVertex(H.x, H.y, H.z, 0, 1, vertdata); //Top
-	addCubeVertex(G.x, G.y, G.z, 1, 1, vertdata);
-	addCubeVertex(C.x, C.y, C.z, 1, 0, vertdata);
-	addCubeVertex(C.x, C.y, C.z, 1, 0, vertdata);
-	addCubeVertex(D.x, D.y, D.z, 0, 0, vertdata);
-	addCubeVertex(H.x, H.y, H.z, 0, 1, vertdata);
-
-	addCubeVertex(A.x, A.y, A.z, 0, 1, vertdata); //Bottom
-	addCubeVertex(B.x, B.y, B.z, 1, 1, vertdata);
-	addCubeVertex(F.x, F.y, F.z, 1, 0, vertdata);
-	addCubeVertex(F.x, F.y, F.z, 1, 0, vertdata);
-	addCubeVertex(E.x, E.y, E.z, 0, 0, vertdata);
-	addCubeVertex(A.x, A.y, A.z, 0, 1, vertdata);
-
-	addCubeVertex(A.x, A.y, A.z, 0, 1, vertdata); //Left
-	addCubeVertex(E.x, E.y, E.z, 1, 1, vertdata);
-	addCubeVertex(H.x, H.y, H.z, 1, 0, vertdata);
-	addCubeVertex(H.x, H.y, H.z, 1, 0, vertdata);
-	addCubeVertex(D.x, D.y, D.z, 0, 0, vertdata);
-	addCubeVertex(A.x, A.y, A.z, 0, 1, vertdata);
-
-	addCubeVertex(F.x, F.y, F.z, 0, 1, vertdata); //Right
-	addCubeVertex(B.x, B.y, B.z, 1, 1, vertdata);
-	addCubeVertex(C.x, C.y, C.z, 1, 0, vertdata);
-	addCubeVertex(C.x, C.y, C.z, 1, 0, vertdata);
-	addCubeVertex(G.x, G.y, G.z, 0, 0, vertdata);
-	addCubeVertex(F.x, F.y, F.z, 0, 1, vertdata);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Draw all of the controllers as X/Y/Z lines
-//-----------------------------------------------------------------------------
-void RSGViveApp::renderControllerAxes()
-{
-	// Don't attempt to update controllers if input is not available
-	if (!m_pHMD->IsInputAvailable())
-		return;
-
-	std::vector<float> vertdataarray;
-
-	m_uiControllerVertcount = 0;
-	m_iTrackedControllerCount = 0;
-
-	for (EHand eHand = Left; eHand <= Right; ((int&)eHand)++)
-	{
-		if (!m_rHand[eHand].m_bShowController)
-			continue;
-
-		const Matrix4 & mat = m_rHand[eHand].m_rmat4Pose;
-
-		Vector4 center = mat * Vector4(0, 0, 0, 1);
-
-		for (int i = 0; i < 3; ++i)
-		{
-			Vector3 color(0, 0, 0);
-			Vector4 point(0, 0, 0, 1);
-			point[i] += 0.05f;  // offset in X, Y, Z
-			color[i] = 1.0;  // R, G, B
-			point = mat * point;
-			vertdataarray.push_back(center.x);
-			vertdataarray.push_back(center.y);
-			vertdataarray.push_back(center.z);
-
-			vertdataarray.push_back(color.x);
-			vertdataarray.push_back(color.y);
-			vertdataarray.push_back(color.z);
-
-			vertdataarray.push_back(point.x);
-			vertdataarray.push_back(point.y);
-			vertdataarray.push_back(point.z);
-
-			vertdataarray.push_back(color.x);
-			vertdataarray.push_back(color.y);
-			vertdataarray.push_back(color.z);
-
-			m_uiControllerVertcount += 2;
-		}
-
-		Vector4 start = mat * Vector4(0, 0, -0.02f, 1);
-		Vector4 end = mat * Vector4(0, 0, -39.f, 1);
-		Vector3 color(.92f, .92f, .71f);
-
-		vertdataarray.push_back(start.x); vertdataarray.push_back(start.y); vertdataarray.push_back(start.z);
-		vertdataarray.push_back(color.x); vertdataarray.push_back(color.y); vertdataarray.push_back(color.z);
-
-		vertdataarray.push_back(end.x); vertdataarray.push_back(end.y); vertdataarray.push_back(end.z);
-		vertdataarray.push_back(color.x); vertdataarray.push_back(color.y); vertdataarray.push_back(color.z);
-		m_uiControllerVertcount += 2;
-	}
-
-	// Setup the VAO the first time through.
-	if (m_unControllerVAO == 0)
-	{
-		glGenVertexArrays(1, &m_unControllerVAO);
-		glBindVertexArray(m_unControllerVAO);
-
-		glGenBuffers(1, &m_glControllerVertBuffer);
-		glBindBuffer(GL_ARRAY_BUFFER, m_glControllerVertBuffer);
-
-		GLuint stride = 2 * 3 * sizeof(float);
-		uintptr_t offset = 0;
-
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-		offset += sizeof(Vector3);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-		glBindVertexArray(0);
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, m_glControllerVertBuffer);
-
-	// set vertex data if we have some
-	if (vertdataarray.size() > 0)
-	{
-		//$ TODO: Use glBufferSubData for this...
-		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertdataarray.size(), &vertdataarray[0], GL_STREAM_DRAW);
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void RSGViveApp::setupCompanionWindow()
-{
-	if (!m_pHMD)
-		return;
-
-	std::vector<VertexDataWindow> vVerts;
-
-	// left eye verts
-	vVerts.push_back(VertexDataWindow(Vector2(-1, -1), Vector2(0, 1)));
-	vVerts.push_back(VertexDataWindow(Vector2(0, -1), Vector2(1, 1)));
-	vVerts.push_back(VertexDataWindow(Vector2(-1, 1), Vector2(0, 0)));
-	vVerts.push_back(VertexDataWindow(Vector2(0, 1), Vector2(1, 0)));
-
-	// right eye verts
-	vVerts.push_back(VertexDataWindow(Vector2(0, -1), Vector2(0, 1)));
-	vVerts.push_back(VertexDataWindow(Vector2(1, -1), Vector2(1, 1)));
-	vVerts.push_back(VertexDataWindow(Vector2(0, 1), Vector2(0, 0)));
-	vVerts.push_back(VertexDataWindow(Vector2(1, 1), Vector2(1, 0)));
-
-	GLushort vIndices[] = { 0, 1, 3,   0, 3, 2,   4, 5, 7,   4, 7, 6 };
-	m_uiCompanionWindowIndexSize = _countof(vIndices);
-
-	glGenVertexArrays(1, &m_unCompanionWindowVAO);
-	glBindVertexArray(m_unCompanionWindowVAO);
-
-	glGenBuffers(1, &m_glCompanionWindowIDVertBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, m_glCompanionWindowIDVertBuffer);
-	glBufferData(GL_ARRAY_BUFFER, vVerts.size() * sizeof(VertexDataWindow), &vVerts[0], GL_STATIC_DRAW);
-
-	glGenBuffers(1, &m_glCompanionWindowIDIndexBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glCompanionWindowIDIndexBuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_uiCompanionWindowIndexSize * sizeof(GLushort), &vIndices[0], GL_STATIC_DRAW);
-
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void *)offsetof(VertexDataWindow, position));
-
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void *)offsetof(VertexDataWindow, texCoord));
-
-	glBindVertexArray(0);
-
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-}
-
-//-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
 void RSGViveApp::updateHMDMatrixPose()
@@ -1084,13 +642,11 @@ void RSGViveApp::updateHMDMatrixPose()
 
 	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
 
-	m_iValidPoseCount = 0;
 	m_strPoseClasses = "";
 	for (int nDevice = 0; nDevice < vr::k_unMaxTrackedDeviceCount; ++nDevice)
 	{
 		if (m_rTrackedDevicePose[nDevice].bPoseIsValid)
 		{
-			m_iValidPoseCount++;
 			m_rmat4DevicePose[nDevice] = convertSteamVRMatrixToMatrix4(m_rTrackedDevicePose[nDevice].mDeviceToAbsoluteTracking);
 			if (m_rDevClassChar[nDevice] == 0)
 			{
@@ -1116,75 +672,6 @@ void RSGViveApp::updateHMDMatrixPose()
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Finds a render model we've already loaded or loads a new one
-//-----------------------------------------------------------------------------
-CGLRenderModel *RSGViveApp::findOrLoadRenderModel(const char *pchRenderModelName)
-{
-	CGLRenderModel *pRenderModel = NULL;
-	for (std::vector< CGLRenderModel * >::iterator i = m_vecRenderModels.begin(); i != m_vecRenderModels.end(); i++)
-	{
-		if (!stricmp((*i)->getName().c_str(), pchRenderModelName))
-		{
-			pRenderModel = *i;
-			break;
-		}
-	}
-
-	// load the model if we didn't find one
-	if (!pRenderModel)
-	{
-		vr::RenderModel_t *pModel;
-		vr::EVRRenderModelError error;
-		while (1)
-		{
-			error = vr::VRRenderModels()->LoadRenderModel_Async(pchRenderModelName, &pModel);
-			if (error != vr::VRRenderModelError_Loading)
-				break;
-
-			threadSleep(1);
-		}
-
-		if (error != vr::VRRenderModelError_None)
-		{
-			dprintf("Unable to load render model %s - %s\n", pchRenderModelName, vr::VRRenderModels()->GetRenderModelErrorNameFromEnum(error));
-			return NULL; // move on to the next tracked device
-		}
-
-		vr::RenderModel_TextureMap_t *pTexture;
-		while (1)
-		{
-			error = vr::VRRenderModels()->LoadTexture_Async(pModel->diffuseTextureId, &pTexture);
-			if (error != vr::VRRenderModelError_Loading)
-				break;
-
-			threadSleep(1);
-		}
-
-		if (error != vr::VRRenderModelError_None)
-		{
-			dprintf("Unable to load render texture id:%d for render model %s\n", pModel->diffuseTextureId, pchRenderModelName);
-			vr::VRRenderModels()->FreeRenderModel(pModel);
-			return NULL; // move on to the next tracked device
-		}
-
-		pRenderModel = new CGLRenderModel(pchRenderModelName);
-		if (!pRenderModel->bInit(*pModel, *pTexture))
-		{
-			dprintf("Unable to create GL model from render model %s\n", pchRenderModelName);
-			delete pRenderModel;
-			pRenderModel = NULL;
-		}
-		else
-		{
-			m_vecRenderModels.push_back(pRenderModel);
-		}
-		vr::VRRenderModels()->FreeRenderModel(pModel);
-		vr::VRRenderModels()->FreeTexture(pTexture);
-	}
-	return pRenderModel;
-}
-
-//-----------------------------------------------------------------------------
 // Purpose: Converts a SteamVR matrix to our local matrix class
 //-----------------------------------------------------------------------------
 Matrix4 RSGViveApp::convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPose)
@@ -1198,83 +685,11 @@ Matrix4 RSGViveApp::convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPo
 	return matrixObj;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Create/destroy GL Render Models
-//-----------------------------------------------------------------------------
-CGLRenderModel::CGLRenderModel(const std::string & sRenderModelName)
-	: m_sModelName(sRenderModelName)
-{
-	m_glIndexBuffer = 0;
-	m_glVertArray = 0;
-	m_glVertBuffer = 0;
-	m_glTexture = 0;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Allocates and populates the GL resources for a render model
-//-----------------------------------------------------------------------------
-bool CGLRenderModel::bInit(const vr::RenderModel_t & vrModel, const vr::RenderModel_TextureMap_t & vrDiffuseTexture)
-{
-	// create and bind a VAO to hold state for this model
-	glGenVertexArrays(1, &m_glVertArray);
-	glBindVertexArray(m_glVertArray);
-
-	// Populate a vertex buffer
-	glGenBuffers(1, &m_glVertBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vr::RenderModel_Vertex_t) * vrModel.unVertexCount, vrModel.rVertexData, GL_STATIC_DRAW);
-
-	// Identify the components in the vertex buffer
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vr::RenderModel_Vertex_t), (void *)offsetof(vr::RenderModel_Vertex_t, vPosition));
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vr::RenderModel_Vertex_t), (void *)offsetof(vr::RenderModel_Vertex_t, vNormal));
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vr::RenderModel_Vertex_t), (void *)offsetof(vr::RenderModel_Vertex_t, rfTextureCoord));
-
-	// Create and populate the index buffer
-	glGenBuffers(1, &m_glIndexBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glIndexBuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint16_t) * vrModel.unTriangleCount * 3, vrModel.rIndexData, GL_STATIC_DRAW);
-
-	glBindVertexArray(0);
-
-	// create and populate the texture
-	glGenTextures(1, &m_glTexture);
-	glBindTexture(GL_TEXTURE_2D, m_glTexture);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, vrDiffuseTexture.unWidth, vrDiffuseTexture.unHeight,
-		0, GL_RGBA, GL_UNSIGNED_BYTE, vrDiffuseTexture.rubTextureMapData);
-
-	// If this renders black ask McJohn what's wrong.
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-	GLfloat fLargest;
-	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	m_unVertexCount = vrModel.unTriangleCount * 3;
-
-	return true;
-}
 
 
 
 void RSGViveApp::setup()
 {
-	m_nCompanionWindowWidth = 640;
-    m_nCompanionWindowHeight=320;
-	 m_unSceneProgramID=0;
-	 m_unCompanionWindowProgramID=0;
-	 m_unControllerTransformProgramID=0;
-	 m_unRenderModelProgramID=0;
 	 m_pHMD=NULL;
 	 chap = NULL;
 	 m_bDebugOpenGL=false;
@@ -1284,17 +699,8 @@ void RSGViveApp::setup()
 	 m_bGlFinishHack=true;
 	 m_glControllerVertBuffer=0;
 	 m_unControllerVAO=0;
-	 m_unSceneVAO=0;
-	 m_nSceneMatrixLocation=-1;
-	 m_nControllerMatrixLocation=-1;
-	 m_nRenderModelMatrixLocation=-1;
-	 m_iTrackedControllerCount=0;
-	 m_iTrackedControllerCount_Last=-1;
-	 m_iValidPoseCount=0;
-	 m_iValidPoseCount_Last=-1;
 	 m_iSceneVolumeInit=20;
 	 m_strPoseClasses="";
-	 m_bShowCubes=true;
 
 	 bInit();
 	
