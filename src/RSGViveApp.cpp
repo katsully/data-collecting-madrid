@@ -97,7 +97,7 @@ private:
 	params::InterfaceGlRef mParams;
 
 	vec2 trackerPos1 = vec2(0,0);
-	vec2 trackedPos2 = vec2(0,0);
+	vec2 trackerPos2 = vec2(0,0);
 	float playAreaX, playAreaZ;
 
 	bool m_bDebugOpenGL;
@@ -214,8 +214,6 @@ private: // OpenGL bookkeeping
 	FramebufferDesc leftEyeDesc;
 	FramebufferDesc rightEyeDesc;
 
-	bool createFrameBuffer(int nWidth, int nHeight, FramebufferDesc &framebufferDesc);
-
 	uint32_t m_nRenderWidth;
 	uint32_t m_nRenderHeight;
 
@@ -231,7 +229,7 @@ private: // OpenGL bookkeeping
 
 void prepareSettings(RSGViveApp::Settings* settings)
 {
-	settings->setWindowSize(800, 800);
+	settings->setWindowSize(808, 480);
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -475,9 +473,6 @@ bool RSGViveApp::bInit()
 	vr::VRChaperone()->GetCalibrationState();
 	vr::VRChaperoneSetup()->RevertWorkingCopy();
 	vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(&playAreaX, &playAreaZ);
-	// float *posX = 0;
-	// float *posZ = 0;
-	// vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(posX, posZ);
 	dprintf("PosX:%f PosZ:%f\n", playAreaX, playAreaZ);
 	
 	return true;
@@ -627,15 +622,7 @@ bool RSGViveApp::handleInput()
 //-----------------------------------------------------------------------------
 void RSGViveApp::printPositionData() {
 
-	//tryinfg room scaling
-
-	/*float *posX = 0;
-	float *posZ = 0;*/
-	//chap->GetPlayAreaSize(posX, posZ);
-
-	//dprintf("PosX:%f PosZ:%f\n", posX, posZ);
-	
-
+	// positions(and rotations) are relative to the floor in center of the user's configured play space for the Standing tracking space.
 
 	// Process StreamVR device states
 	for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
@@ -670,6 +657,7 @@ void RSGViveApp::printPositionData() {
 				break;
 
 			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
+				// print position data for hand controllers
 				poseMatrix = trackedControllerPose.mDeviceToAbsoluteTracking;	// This matrix contains all positional and rotational data
 				position = getPosition(trackedControllerPose.mDeviceToAbsoluteTracking);
 				quaternion = getRotation(trackedControllerPose.mDeviceToAbsoluteTracking);
@@ -736,14 +724,6 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 
 	// x axis is left-right, y axis is up-down, z axis is forward-back
 
-	//float sizeX = 0;
-	//float sizeZ = 0;
-	//vr::IVRChaperone* chap;
-	//vr::IVRChaperone::GetPlayAreaSize(&sizeX, &sizeZ);
-
-	// float posX, posZ;
-	// vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(&posX, &posZ);
-
 
 	 // sPrint position and quaternion (rotation).
 	/*dprintf("\n%lld, %s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
@@ -753,12 +733,12 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 */
 	if (strcmp(deviceName, "LeftHand") == 0) {
 
-			//map(position.v[0], -2, 2, 0, 800)
+			//map(position.v[0], -playAreaX, playAreaX, 0, 808)
 			//map(value, start1, stop1, start2, stop2)
 			//start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1))
 		// TODO: add in playAreaX and playAreaZ
-		float newX = 800 * ((position.v[0] - -2) / (2 - -2));
-		float newZ = 800 * ((position.v[2] - -2) / (2.3 - -2));
+		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos1 = vec2(newX, newZ);
 
 		dprintf("\n PosX:%f PosZ:%f", newX, newZ);
@@ -782,13 +762,12 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 			minZ = position.v[2];
 		}
 	} else if (strcmp(deviceName, "RightHand") == 0) {
-		// TODO: add in playAreaX and playAreaZ
-		float newX = 800 * ((position.v[0] - -2) / (2 - -2));
-		float newZ = 800 * ((position.v[2] - -2) / (2.3 - -2));
+		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos2 = vec2(newX, newZ);
 	}
 
-	dprintf("Min X:%f Max X:%f Min Z:%f Max Z:%f\n", minX, maxX, minZ, maxZ);
+	//dprintf("Min X:%f Max X:%f Min Z:%f Max Z:%f\n", minX, maxX, minZ, maxZ);
 
 
 	// Uncomment this if you want to print entire transform matrix that contains both position and rotation matrix.
