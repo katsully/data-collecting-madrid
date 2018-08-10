@@ -77,6 +77,7 @@ private:
 
 	vec2 trackerPos1 = vec2(0,0);
 	vec2 trackerPos2 = vec2(0,0);
+	vec2 trackerPos3 = vec2(0, 0);
 	float playAreaX, playAreaZ;
 
 	bool m_bDebugOpenGL;
@@ -474,19 +475,29 @@ void RSGViveApp::printPositionData() {
 			vr::ETrackedDeviceClass trackedDeviceClass = vr::VRSystem()->GetTrackedDeviceClass(unDevice);
 
 			switch (trackedDeviceClass) {
-			case vr::ETrackedDeviceClass::TrackedDeviceClass_HMD: vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, &trackedDevicePose, 1);
-				// print position data for the HMD
+			//case vr::ETrackedDeviceClass::TrackedDeviceClass_HMD: vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, &trackedDevicePose, 1);
+			//	// print position data for the HMD
+			//	
+			//	poseMatrix = trackedDevicePose.mDeviceToAbsoluteTracking;	// This matrix contains all positional and rotational data
+			//	position = getPosition(trackedDevicePose.mDeviceToAbsoluteTracking);
+			//	quaternion = getRotation(trackedDevicePose.mDeviceToAbsoluteTracking);
+
+			//	printDevicePositionalData("HMD", poseMatrix, position, quaternion);
+
+
+			//	break;
+
+			case vr::ETrackedDeviceClass::TrackedDeviceClass_GenericTracker: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedDevicePose);
+				// print position data for a general vive tracker
+
 				poseMatrix = trackedDevicePose.mDeviceToAbsoluteTracking;	// This matrix contains all positional and rotational data
 				position = getPosition(trackedDevicePose.mDeviceToAbsoluteTracking);
 				quaternion = getRotation(trackedDevicePose.mDeviceToAbsoluteTracking);
 
-				printDevicePositionalData("HMD", poseMatrix, position, quaternion);
+				//auto trackerIndex = vr::VRSystem()->GetStringTrackedDeviceProperty(unDevice);
 
+				printDevicePositionalData("tracker", poseMatrix, position, quaternion);
 
-				break;
-
-			case vr::ETrackedDeviceClass::TrackedDeviceClass_GenericTracker: vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, &trackedDevicePose, 1);
-				// print position data for a general vive tracker
 				break;
 
 			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
@@ -565,39 +576,19 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		quaternion.w, quaternion.x, quaternion.y, quaternion.z);
 */
 	if (strcmp(deviceName, "LeftHand") == 0) {
-
-			//map(position.v[0], -playAreaX, playAreaX, 0, 808)
-			//map(value, start1, stop1, start2, stop2)
-			//start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1))
-		// TODO: add in playAreaX and playAreaZ
 		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos1 = vec2(newX, newZ);
 
-		dprintf("\n PosX:%f PosZ:%f", newX, newZ);
-
-		/*if (position.v[0] > maxX) {
-			maxX = position.v[0];
-		}
-		else if (position.v[0] < minX) {
-			minX = position.v[0];
-		}
-		if (position.v[1] > maxY) {
-			maxY = position.v[1];
-		}
-		else if (position.v[1] < minY) {
-			minY = position.v[1];
-		}
-		if (position.v[2] > maxZ) {
-			maxZ = position.v[2];
-		}
-		else if (position.v[2] < minZ) {
-			minZ = position.v[2];
-		}*/
 	} else if (strcmp(deviceName, "RightHand") == 0) {
 		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos2 = vec2(newX, newZ);
+	}
+	else if (strcmp(deviceName, "tracker") == 0) {
+		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
+		trackerPos3 = vec2(newX, newZ);
 	}
 
 	//dprintf("Min X:%f Max X:%f Min Z:%f Max Z:%f\n", minX, maxX, minZ, maxZ);
@@ -734,6 +725,9 @@ void RSGViveApp::draw()
 	gl::drawSolidCircle(trackerPos1, 15);
 	gl::color(Color(0,0,1));
 	gl::drawSolidCircle(trackerPos2, 15);
+	gl::color(Color(0, 1, 0));
+	gl::drawSolidRect(Rectf(trackerPos3.x, trackerPos3.y, trackerPos3.x + 15, trackerPos3.y + 15));
+
 
 	mParams->draw();
 }
