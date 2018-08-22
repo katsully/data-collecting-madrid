@@ -74,6 +74,7 @@ private:
 	vec2 trackerPos1 = vec2(0,0);
 	vec2 trackerPos2 = vec2(0,0);
 	vec2 trackerPos3 = vec2(0, 0);
+	vec2 trackerPos4 = vec2(0, 0);
 	float playAreaX, playAreaZ;
 
 	bool m_bDebugOpenGL;
@@ -490,10 +491,18 @@ void RSGViveApp::printPositionData() {
 				position = getPosition(trackedDevicePose.mDeviceToAbsoluteTracking);
 				quaternion = getRotation(trackedDevicePose.mDeviceToAbsoluteTracking);
 
-				//auto trackerIndex = vr::VRSystem()->GetStringTrackedDeviceProperty(unDevice);
+				char serialNumber[1024];
+				vr::VRSystem()->GetStringTrackedDeviceProperty(unDevice, vr::Prop_SerialNumber_String, serialNumber, sizeof(serialNumber));
 
-				printDevicePositionalData("tracker", poseMatrix, position, quaternion);
+				//dprintf("\nSerial number: %s ", serialNumber);
 
+				
+				if (strcmp(serialNumber, "LHR-9F44C576") == 0) {
+					printDevicePositionalData("tracker1", poseMatrix, position, quaternion);
+				}
+				else if (strcmp(serialNumber, "LHR-60182D91") == 0) {
+					printDevicePositionalData("tracker2", poseMatrix, position, quaternion);
+				}
 				break;
 
 			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
@@ -581,10 +590,15 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos2 = vec2(newX, newZ);
 	}
-	else if (strcmp(deviceName, "tracker") == 0) {
+	else if (strcmp(deviceName, "tracker1") == 0) {
 		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos3 = vec2(newX, newZ);
+	}
+	else if (strcmp(deviceName, "tracker2") == 0) {
+		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
+		trackerPos4 = vec2(newX, newZ);
 	}
 
 	//dprintf("Min X:%f Max X:%f Min Z:%f Max Z:%f\n", minX, maxX, minZ, maxZ);
@@ -723,7 +737,8 @@ void RSGViveApp::draw()
 	gl::drawSolidCircle(trackerPos2, 15);
 	gl::color(Color(0, 1, 0));
 	gl::drawSolidRect(Rectf(trackerPos3.x, trackerPos3.y, trackerPos3.x + 15, trackerPos3.y + 15));
-
+	gl::color(Color::white());
+	gl::drawSolidRect(Rectf(trackerPos4.x, trackerPos4.y, trackerPos4.x + 15, trackerPos4.y + 15));
 
 	mParams->draw();
 }
