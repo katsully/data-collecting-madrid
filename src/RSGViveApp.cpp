@@ -57,10 +57,6 @@ class RSGViveApp : public App {
 	void printDevicePositionalData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::HmdVector3_t position, vr::HmdQuaternion_t quaternion);
 	void processVREvent(const vr::VREvent_t & event);
 
-	void renderControllerAxes();
-
-	void setupCompanionWindow();
-	
 	void updateHMDMatrixPose();
 
 	Matrix4 convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPos);
