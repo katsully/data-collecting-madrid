@@ -41,6 +41,7 @@ class RSGViveApp : public App {
 	void render();
 	void button();
 	void clear();
+	void fullScreen();
 
 	// from hellovr_opengl_main.cpp
 	RSGViveApp(int argc, char *argv[]);
@@ -48,7 +49,6 @@ class RSGViveApp : public App {
 	virtual ~RSGViveApp();
 
 	bool bInit();
-	bool bInitCompositor();
 	
 	void shutdown();
 
@@ -66,6 +66,7 @@ class RSGViveApp : public App {
 	int mTrailLimit;
 	int mPageNum;
 	bool mRecord;
+	bool mFullScreen = true;
 
 private:
 	params::InterfaceGlRef mParams;
@@ -76,7 +77,7 @@ private:
 	vec2 trackerPos4 = vec2(0, 0);
 	vec2 trackerPos5 = vec2(0, 0);
 	float playAreaX, playAreaZ;
-	vector<vec2> mTrails;
+	vector<vector<vec2>> mTrails;
 
 	// quicktime
 	//qtime::MovieWriterRef mMovieExporter;
@@ -244,9 +245,7 @@ void dprintf(const char *fmt, ...)
 RSGViveApp::RSGViveApp(int argc, char *argv[])
 	: m_pHMD(NULL)
 	, chap(NULL)
-	, m_glControllerVertBuffer(0)
 	, m_unControllerVAO(0)
-	, m_iSceneVolumeInit(20)
 	, m_strPoseClasses("")
 {
 
@@ -272,13 +271,11 @@ void RSGViveApp::setup()
 {
 	m_pHMD = NULL;
 	chap = NULL;
-	m_glControllerVertBuffer = 0;
 	m_unControllerVAO = 0;
-	m_iSceneVolumeInit = 20;
 	m_strPoseClasses = "";
 	mPageNum = 1;
 
-	// setFullScreen(true);
+	setFullScreen(mFullScreen);
 
 	// load floor plan image
 	try {
@@ -307,6 +304,10 @@ void RSGViveApp::setup()
 	render();
 
 	mTrailLimit = 100;
+	vector<vec2> v = { vec2(0,0) };
+	for (int i = 0; i < 5; i++) {
+		mTrails.push_back(v);
+	}
 	mRecord = false;
 
 	bInit();
@@ -318,7 +319,13 @@ void RSGViveApp::setup()
 	mParams->addParam("Recording", &mRecord);
 	mParams->addButton("Next Page", bind(&RSGViveApp::button, this));
 	mParams->addButton("Clear Trails", bind(&RSGViveApp::clear, this));
+	mParams->addButton("Toggle Full Screen", bind(&RSGViveApp::fullScreen, this));
 
+}
+
+void RSGViveApp::fullScreen() {
+	mFullScreen = !mFullScreen;
+	setFullScreen(mFullScreen);
 }
 
 //-----------------------------------------------------------------------------
@@ -357,12 +364,6 @@ bool RSGViveApp::bInit()
 		return false;
 	}
 
-	if (!bInitCompositor())
-	{
-		printf("%s - Failed to initialize VR Compositor!\n", __FUNCTION__);
-		return false;
-	}
-
 	vr::VRInput()->SetActionManifestPath(Path_MakeAbsolute("../hellovr_actions.json", Path_StripFilename(Path_GetExecutablePath())).c_str());
 
 	vr::VRInput()->GetActionHandle("/actions/demo/in/HideCubes", &m_actionHideCubes);
@@ -383,7 +384,7 @@ bool RSGViveApp::bInit()
 	vr::VRChaperone()->GetCalibrationState();
 	vr::VRChaperoneSetup()->RevertWorkingCopy();
 	vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(&playAreaX, &playAreaZ);
-	//dprintf("PosX:%f PosZ:%f\n", playAreaX, playAreaZ);
+	dprintf("PosX:%f PosZ:%f\n", playAreaX, playAreaZ);
 	
 	return true;
 }
@@ -396,24 +397,6 @@ bool RSGViveApp::bInit()
 void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
 	dprintf("GL Error: %s\n", message);
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Initialize Compositor. Returns true if the compositor was
-//          successfully initialized, false otherwise.
-//-----------------------------------------------------------------------------
-bool RSGViveApp::bInitCompositor()
-{
-	vr::EVRInitError peError = vr::VRInitError_None;
-
-	if (!vr::VRCompositor())
-	{
-		printf("Compositor initialization failed. See log file for details\n");
-		return false;
-	}
-
-	return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -599,28 +582,28 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 	// x axis is left-right, y axis is up-down, z axis is forward-back
 
 	if (strcmp(deviceName, "LeftHand") == 0) {
-		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
-		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
+		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos1 = vec2(newX, newZ);
 
 	} else if (strcmp(deviceName, "RightHand") == 0) {
-		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
-		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
+		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos2 = vec2(newX, newZ);
 	}
 	else if (strcmp(deviceName, "tracker1") == 0) {
-		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
-		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
+		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos3 = vec2(newX, newZ);
 	}
 	else if (strcmp(deviceName, "tracker2") == 0) {
-		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
-		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
+		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos4 = vec2(newX, newZ);
 	}
 	else if (strcmp(deviceName, "tracker3") == 0) {
-		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
-		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
+		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos5 = vec2(newX, newZ);
 	}
 
@@ -720,7 +703,9 @@ void RSGViveApp::button() {
 }
 
 void RSGViveApp::clear() {
-	mTrails.clear();
+	for (vector<vec2> t : mTrails) {
+		t.clear();
+	}
 }
 
 void RSGViveApp::update()
@@ -757,25 +742,42 @@ void RSGViveApp::draw()
 	}
 
 	// draw trails
-	for (vec2 t : mTrails) {
-		gl::drawSolidCircle(t, 5);
+	for (vector<vec2> trails : mTrails) {
+		for (vec2& t : trails) {
+			gl::drawSolidCircle(t, 5);
+		}
 	}
 
 	gl::color(Color(1, 0, 0));
 	gl::drawSolidCircle(trackerPos1, 15);
-	mTrails.push_back(trackerPos1);
+	if (mTrails[0].size() == 0 || mTrails[0].back() != trackerPos1) {
+		mTrails[0].push_back(trackerPos1);
+	}
 	gl::color(Color(0,0,1));
 	gl::drawSolidCircle(trackerPos2, 15);
-	mTrails.push_back(trackerPos2);
+	if (mTrails[1].size() == 0 || mTrails[1].back() != trackerPos2) {
+		mTrails[1].push_back(trackerPos2);
+	}	
 	gl::color(Color(0, 1, 0));
 	gl::drawSolidRect(Rectf(trackerPos3.x, trackerPos3.y, trackerPos3.x + 15, trackerPos3.y + 15));
-	mTrails.push_back(trackerPos3);
-	gl::color(Color::white());
+	if (mTrails[2].size() == 0 || mTrails[2].back() != trackerPos3) {
+		mTrails[2].push_back(trackerPos3);
+	}	gl::color(Color::white());
 	gl::drawSolidRect(Rectf(trackerPos4.x, trackerPos4.y, trackerPos4.x + 15, trackerPos4.y + 15));
-	mTrails.push_back(trackerPos4);
-	gl::color(Color(1, 0, 1));
+	if (mTrails[3].size() == 0 || mTrails[3].back() != trackerPos4) {
+		mTrails[3].push_back(trackerPos4);
+	}	gl::color(Color(1, 0, 1));
 	gl::drawSolidRect(Rectf(trackerPos5.x, trackerPos5.y, trackerPos5.x + 15, trackerPos5.y + 15));
-	mTrails.push_back(trackerPos5);
+	if (mTrails[4].size() == 0 || mTrails[4].back() != trackerPos5) {
+		mTrails[4].push_back(trackerPos5);
+	}
+
+	for (vector<vec2>& trails : mTrails) {
+		if (trails.size() > mTrailLimit && trails.size() > 1) {
+			int n = trails.size() - mTrailLimit;
+			trails.erase(trails.begin(), trails.begin() + n);
+		}
+	}
 
 
 	mParams->draw();
