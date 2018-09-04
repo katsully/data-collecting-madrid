@@ -36,9 +36,11 @@ static bool g_bPrintf = true;
 class RSGViveApp : public App {
   public:
 	void setup() override;
-	void mouseDown( MouseEvent event ) override;
 	void update() override;
 	void draw() override;
+	void render();
+	void button();
+	void clear();
 
 	// from hellovr_opengl_main.cpp
 	RSGViveApp(int argc, char *argv[]);
@@ -61,12 +63,9 @@ class RSGViveApp : public App {
 
 	Matrix4 convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPos);
 
-	//float maxX = 0.0;
-	//float minX = 100;
-	//float maxY = 0.0;
-	//float minY = 100;
-	//float maxZ = 0.0;
-	//float minZ = 100;
+	int mTrailLimit;
+	int mPageNum;
+	bool mRecord;
 
 private:
 	params::InterfaceGlRef mParams;
@@ -75,13 +74,18 @@ private:
 	vec2 trackerPos2 = vec2(0,0);
 	vec2 trackerPos3 = vec2(0, 0);
 	vec2 trackerPos4 = vec2(0, 0);
+	vec2 trackerPos5 = vec2(0, 0);
 	float playAreaX, playAreaZ;
+	vector<vec2> mTrails;
 
-	bool m_bDebugOpenGL;
-	bool m_bVerbose;
-	bool m_bPerf;
-	bool m_bVblank;
-	bool m_bGlFinishHack;
+	// quicktime
+	//qtime::MovieWriterRef mMovieExporter;
+	//qtime::MovieWriter::Format format;
+
+	// for the page number text box
+	gl::TextureRef mTextTexture;
+	vec2 mSize;
+	Font mFont;
 
 	vr::IVRSystem *m_pHMD;
 	vr::IVRChaperone *chap;
@@ -106,7 +110,7 @@ private:
 	ControllerInfo_t m_rHand[2];
 
 
-private: // OpenGL bookkeeping
+private: 
 
 	std::string m_strPoseClasses;                            // what classes we saw poses for this frame
 	char m_rDevClassChar[vr::k_unMaxTrackedDeviceCount];   // for each device, a character representing its class
@@ -118,9 +122,6 @@ private: // OpenGL bookkeeping
 	float m_fScale;
 
 	int m_iSceneVolumeInit;                                  // if you want something other than the default 20x20x20
-
-	float m_fNearClip;
-	float m_fFarClip;
 
 	unsigned int m_uiVertcount;
 
@@ -243,45 +244,13 @@ void dprintf(const char *fmt, ...)
 RSGViveApp::RSGViveApp(int argc, char *argv[])
 	: m_pHMD(NULL)
 	, chap(NULL)
-	, m_bDebugOpenGL(false)
-	, m_bVerbose(false)
-	, m_bPerf(false)
-	, m_bVblank(false)
-	, m_bGlFinishHack(true)
 	, m_glControllerVertBuffer(0)
 	, m_unControllerVAO(0)
 	, m_iSceneVolumeInit(20)
 	, m_strPoseClasses("")
 {
 
-	for (int i = 1; i < argc; i++)
-	{
-		if (!stricmp(argv[i], "-gldebug"))
-		{
-			m_bDebugOpenGL = true;
-		}
-		else if (!stricmp(argv[i], "-verbose"))
-		{
-			m_bVerbose = true;
-		}
-		else if (!stricmp(argv[i], "-novblank"))
-		{
-			m_bVblank = false;
-		}
-		else if (!stricmp(argv[i], "-noglfinishhack"))
-		{
-			m_bGlFinishHack = false;
-		}
-		else if (!stricmp(argv[i], "-noprintf"))
-		{
-			g_bPrintf = false;
-		}
-		else if (!stricmp(argv[i], "-cubevolume") && (argc > i + 1) && (*argv[i + 1] != '-'))
-		{
-			m_iSceneVolumeInit = atoi(argv[i + 1]);
-			i++;
-		}
-	}
+
 	// other initialization tasks are done in BInit
 	memset(m_rDevClassChar, 0, sizeof(m_rDevClassChar));
 }
@@ -297,6 +266,59 @@ RSGViveApp::~RSGViveApp()
 {
 	// work is done in Shutdown
 	dprintf("Shutdown");
+}
+
+void RSGViveApp::setup()
+{
+	m_pHMD = NULL;
+	chap = NULL;
+	m_glControllerVertBuffer = 0;
+	m_unControllerVAO = 0;
+	m_iSceneVolumeInit = 20;
+	m_strPoseClasses = "";
+	mPageNum = 1;
+
+	// setFullScreen(true);
+
+	// load floor plan image
+	try {
+		//mFloorPlan = gl::Texture::create(loadImage(loadAsset(something)));
+	}
+	catch (...) {
+		dprintf("unable to load the texture file!");
+	}
+
+	// quicktime
+	// fs::path path = getSaveFilePath();
+	// if (!path.empty()) {
+		//format = qtime::MovieWriter::Format().codec(qtime::MovieWriter::H2364).fileType(qtime::movieWriter::QUICK_TIME_MOVIE).setTimeScale(250);
+
+		//mMovieExporter = qtime::MovieWriter::create(path, getWindowWidth(), getWindowHeight(), format);
+	// }
+
+	// setting up the text box
+#if defined (CINDER_COCOA)
+	mFont = Font("Helvetica", 24);
+#else
+	mFont = Font("Times New Roman", 32);
+#endif
+	mSize = vec2(100, 100);
+
+	render();
+
+	mTrailLimit = 100;
+	mRecord = false;
+
+	bInit();
+
+	// set up parameters
+	// Create the interface and give it a name
+	mParams = params::InterfaceGl::create(getWindow(), "Ready Set Go", toPixels(ivec2(200, 200)));
+	mParams->addParam("Trails", &mTrailLimit);
+	mParams->addParam("Recording", &mRecord);
+	mParams->addButton("Next Page", bind(&RSGViveApp::button, this));
+	mParams->addButton("Clear Trails", bind(&RSGViveApp::clear, this));
+
 }
 
 //-----------------------------------------------------------------------------
@@ -503,6 +525,9 @@ void RSGViveApp::printPositionData() {
 				else if (strcmp(serialNumber, "LHR-60182D91") == 0) {
 					printDevicePositionalData("tracker2", poseMatrix, position, quaternion);
 				}
+				else if (strcmp(serialNumber, "LHR-A434BAF7") == 0) {
+					printDevicePositionalData("tracker3", poseMatrix, position, quaternion);
+				}
 				break;
 
 			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
@@ -573,13 +598,6 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 
 	// x axis is left-right, y axis is up-down, z axis is forward-back
 
-
-	 // sPrint position and quaternion (rotation).
-	/*dprintf("\n%lld, %s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
-		qpc.QuadPart, deviceName,
-		position.v[0], position.v[1], position.v[2],
-		quaternion.w, quaternion.x, quaternion.y, quaternion.z);
-*/
 	if (strcmp(deviceName, "LeftHand") == 0) {
 		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
@@ -600,9 +618,11 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos4 = vec2(newX, newZ);
 	}
-
-	//dprintf("Min X:%f Max X:%f Min Z:%f Max Z:%f\n", minX, maxX, minZ, maxZ);
-
+	else if (strcmp(deviceName, "tracker3") == 0) {
+		float newX = 808 * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
+		float newZ = 460 * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
+		trackerPos5 = vec2(newX, newZ);
+	}
 
 	// Uncomment this if you want to print entire transform matrix that contains both position and rotation matrix.
 	//dprintf("\n%lld,%s,%.5f,%.5f,%.5f,x: %.5f,%.5f,%.5f,%.5f,y: %.5f,%.5f,%.5f,%.5f,z: %.5f,qw: %.5f,qx: %.5f,qy: %.5f,qz: %.5f",
@@ -687,33 +707,20 @@ Matrix4 RSGViveApp::convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPo
 }
 
 
-
-
-void RSGViveApp::setup()
-{
-	 m_pHMD=NULL;
-	 chap = NULL;
-	 m_bDebugOpenGL=false;
-	 m_bVerbose=false;
-	 m_bPerf=false;
-	 m_bVblank=false;
-	 m_bGlFinishHack=true;
-	 m_glControllerVertBuffer=0;
-	 m_unControllerVAO=0;
-	 m_iSceneVolumeInit=20;
-	 m_strPoseClasses="";
-
-	 bInit();
-	
-	 // set up parameters
-	 // Create the interface and give it a name
-	 mParams = params::InterfaceGl::create(getWindow(), "Ready Set Go", toPixels(ivec2(200, 200)));
-	 mParams->addText("TA DA");
-
+void RSGViveApp::render() {
+	string txt = "Page " + std::to_string(mPageNum);
+	TextBox tbox = TextBox().alignment(TextBox::LEFT).font(mFont).size(ivec2(mSize.x, TextBox::GROW)).text(txt);
+	tbox.setColor(Color::white());
+	mTextTexture = gl::Texture2d::create(tbox.render());
 }
 
-void RSGViveApp::mouseDown( MouseEvent event )
-{
+void RSGViveApp::button() {
+	mPageNum++;
+	render();
+}
+
+void RSGViveApp::clear() {
+	mTrails.clear();
 }
 
 void RSGViveApp::update()
@@ -725,20 +732,51 @@ void RSGViveApp::update()
 	if (bQuit) {
 		shutdown();
 	}
+
+	// quicktime rendering
+	/*if (mMovieExporter && getElapsedFrames() > 1 && getElapsedFrames() < 100000) {
+		mMovieExporter->addFrame(copyWindowSurface());
+	}
+	else if (mMovieExporter && getElapsedFrames() >= 1000000) {
+		mMovieExporter->finish();
+		mMovieExporter.reset();
+	}*/
+
+
 }
 
 void RSGViveApp::draw()
 {
 	gl::clear( Color( 0, 0, 0 ) ); 
+	gl::color(Color::white());
+	//gl::draw(mFloorPlan, Rectf(0, 0, getWindowWidth(), getWindowHeight()));
+
+	// draw page number
+	if (mTextTexture) {
+		gl::draw(mTextTexture, Rectf(getWindowWidth() - 130, 0, getWindowWidth(), 60));
+	}
+
+	// draw trails
+	for (vec2 t : mTrails) {
+		gl::drawSolidCircle(t, 5);
+	}
 
 	gl::color(Color(1, 0, 0));
 	gl::drawSolidCircle(trackerPos1, 15);
+	mTrails.push_back(trackerPos1);
 	gl::color(Color(0,0,1));
 	gl::drawSolidCircle(trackerPos2, 15);
+	mTrails.push_back(trackerPos2);
 	gl::color(Color(0, 1, 0));
 	gl::drawSolidRect(Rectf(trackerPos3.x, trackerPos3.y, trackerPos3.x + 15, trackerPos3.y + 15));
+	mTrails.push_back(trackerPos3);
 	gl::color(Color::white());
 	gl::drawSolidRect(Rectf(trackerPos4.x, trackerPos4.y, trackerPos4.x + 15, trackerPos4.y + 15));
+	mTrails.push_back(trackerPos4);
+	gl::color(Color(1, 0, 1));
+	gl::drawSolidRect(Rectf(trackerPos5.x, trackerPos5.y, trackerPos5.x + 15, trackerPos5.y + 15));
+	mTrails.push_back(trackerPos5);
+
 
 	mParams->draw();
 }
