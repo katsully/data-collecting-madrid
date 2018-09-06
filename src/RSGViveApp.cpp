@@ -88,6 +88,8 @@ private:
 	vec2 mSize;
 	Font mFont;
 
+	gl::TextureRef mFloorPlan;
+
 	vr::IVRSystem *m_pHMD;
 	vr::IVRChaperone *chap;
 	std::string m_strDriver;
@@ -116,19 +118,10 @@ private:
 	std::string m_strPoseClasses;                            // what classes we saw poses for this frame
 	char m_rDevClassChar[vr::k_unMaxTrackedDeviceCount];   // for each device, a character representing its class
 
-	int m_iSceneVolumeWidth;
-	int m_iSceneVolumeHeight;
-	int m_iSceneVolumeDepth;
 	float m_fScaleSpacing;
 	float m_fScale;
 
-	int m_iSceneVolumeInit;                                  // if you want something other than the default 20x20x20
-
 	unsigned int m_uiVertcount;
-
-	GLuint m_glControllerVertBuffer;
-	GLuint m_unControllerVAO;
-	unsigned int m_uiControllerVertcount;
 
 	Matrix4 m_mat4HMDPose;
 	Matrix4 m_mat4eyePosLeft;
@@ -245,10 +238,8 @@ void dprintf(const char *fmt, ...)
 RSGViveApp::RSGViveApp(int argc, char *argv[])
 	: m_pHMD(NULL)
 	, chap(NULL)
-	, m_unControllerVAO(0)
 	, m_strPoseClasses("")
 {
-
 
 	// other initialization tasks are done in BInit
 	memset(m_rDevClassChar, 0, sizeof(m_rDevClassChar));
@@ -271,7 +262,6 @@ void RSGViveApp::setup()
 {
 	m_pHMD = NULL;
 	chap = NULL;
-	m_unControllerVAO = 0;
 	m_strPoseClasses = "";
 	mPageNum = 1;
 
@@ -279,7 +269,7 @@ void RSGViveApp::setup()
 
 	// load floor plan image
 	try {
-		//mFloorPlan = gl::Texture::create(loadImage(loadAsset(something)));
+		mFloorPlan = gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png")));
 	}
 	catch (...) {
 		dprintf("unable to load the texture file!");
@@ -734,7 +724,16 @@ void RSGViveApp::draw()
 {
 	gl::clear( Color( 0, 0, 0 ) ); 
 	gl::color(Color::white());
-	//gl::draw(mFloorPlan, Rectf(0, 0, getWindowWidth(), getWindowHeight()));
+
+	dprintf("\nx pos: %f", trackerPos2.x);
+
+		//dprintf("HERE");
+	dprintf("\nWINDOW WIDTH: %f", (float)getWindowWidth());
+		float newX = trackerPos2.x - ((float)getWindowWidth() * .27);
+		dprintf("\nNEW X POS: %f", newX);
+		//dprintf("NOW HERE");
+		float newY = trackerPos2.y - ((float)getWindowHeight() * .68);
+	gl::draw(mFloorPlan, Rectf(newX, newY, newX+getWindowWidth(), newY+getWindowHeight()));
 
 	// draw page number
 	if (mTextTexture) {
