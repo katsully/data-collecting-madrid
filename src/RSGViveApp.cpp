@@ -2,6 +2,7 @@
 #include "cinder/app/RendererGl.h"
 #include "cinder/gl/gl.h"
 #include "cinder/params/Params.h"
+//#include "cinder/qtime/AvfWriter.h"
 
 // from hellovr_opengl_main.cpp
 #include <Windows.h>
@@ -38,6 +39,9 @@ class RSGViveApp : public App {
 	void setup() override;
 	void update() override;
 	void draw() override;
+	void mouseUp(MouseEvent event) override;
+	void mouseDown(MouseEvent event) override;
+	void mouseDrag( MouseEvent event );
 	void render();
 	void button();
 	void clear();
@@ -88,7 +92,18 @@ private:
 	vec2 mSize;
 	Font mFont;
 
-	gl::TextureRef mFloorPlan;
+	// For the initizaltion text
+	gl::TextureRef mTextTextureInit;
+	vec2 mSizeInit;
+	Font mFontInit;
+	bool init = true;
+	int actorNum = 1;
+
+	vec2 startHighlightBox = vec2(0,0);
+	vec2 endHighlightBox = vec2(0,0);
+
+	gl::TextureRef mTable;
+	gl::TextureRef mIsland;
 
 	vr::IVRSystem *m_pHMD;
 	vr::IVRChaperone *chap;
@@ -130,9 +145,6 @@ private:
 	Matrix4 m_mat4ProjectionCenter;
 	Matrix4 m_mat4ProjectionLeft;
 	Matrix4 m_mat4ProjectionRight;
-
-	uint32_t m_nRenderWidth;
-	uint32_t m_nRenderHeight;
 
 	vr::VRActionHandle_t m_actionHideCubes = vr::k_ulInvalidActionHandle;
 	vr::VRActionHandle_t m_actionHideThisController = vr::k_ulInvalidActionHandle;
@@ -269,7 +281,8 @@ void RSGViveApp::setup()
 
 	// load floor plan image
 	try {
-		mFloorPlan = gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png")));
+		mTable = gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png")));
+		mIsland = gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001.png")));
 	}
 	catch (...) {
 		dprintf("unable to load the texture file!");
@@ -286,10 +299,13 @@ void RSGViveApp::setup()
 	// setting up the text box
 #if defined (CINDER_COCOA)
 	mFont = Font("Helvetica", 24);
+	mFontInit = Font("Helvetica", 24);
 #else
 	mFont = Font("Times New Roman", 32);
+	mFontInit = Font("Times New Roman", 64);
 #endif
 	mSize = vec2(100, 100);
+	mSizeInit = vec2(600, 300);
 
 	render();
 
@@ -310,7 +326,6 @@ void RSGViveApp::setup()
 	mParams->addButton("Next Page", bind(&RSGViveApp::button, this));
 	mParams->addButton("Clear Trails", bind(&RSGViveApp::clear, this));
 	mParams->addButton("Toggle Full Screen", bind(&RSGViveApp::fullScreen, this));
-
 }
 
 void RSGViveApp::fullScreen() {
@@ -537,7 +552,6 @@ void RSGViveApp::printPositionData() {
 			}
 		}
 	}
-
 }
 
 vr::HmdQuaternion_t RSGViveApp::getRotation(vr::HmdMatrix34_t matrix) {
@@ -681,10 +695,30 @@ Matrix4 RSGViveApp::convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPo
 
 
 void RSGViveApp::render() {
-	string txt = "Page " + std::to_string(mPageNum);
-	TextBox tbox = TextBox().alignment(TextBox::LEFT).font(mFont).size(ivec2(mSize.x, TextBox::GROW)).text(txt);
+	string txt1 = "Page " + std::to_string(mPageNum);
+	TextBox tbox = TextBox().alignment(TextBox::LEFT).font(mFont).size(ivec2(mSize.x, TextBox::GROW)).text(txt1);
 	tbox.setColor(Color::white());
 	mTextTexture = gl::Texture2d::create(tbox.render());
+
+	if (init) {
+		string txt2 = "Click and Drag to highlight the two trackers that represent Actor " + std::to_string(actorNum);
+		TextBox tbox = TextBox().alignment(TextBox::LEFT).font(mFontInit).size(ivec2(mSizeInit.x, TextBox::GROW)).text(txt2);
+		tbox.setColor(Color(0,0,1));
+		mTextTextureInit = gl::Texture2d::create(tbox.render());
+	}
+}
+
+void RSGViveApp::mouseUp(MouseEvent event) {
+	startHighlightBox = vec2(0, 0);
+	endHighlightBox = vec2(0, 0);
+}
+
+void RSGViveApp::mouseDown(MouseEvent event) {
+	startHighlightBox = event.getPos();
+}
+
+void RSGViveApp::mouseDrag(MouseEvent event) {
+	endHighlightBox = event.getPos();
 }
 
 void RSGViveApp::button() {
@@ -725,20 +759,28 @@ void RSGViveApp::draw()
 	gl::clear( Color( 0, 0, 0 ) ); 
 	gl::color(Color::white());
 
-	dprintf("\nx pos: %f", trackerPos2.x);
+	gl::draw(mIsland, Rectf(0, 0, getWindowWidth(), getWindowHeight()));
+	float newX = trackerPos2.x - ((float)getWindowWidth() * .27);
+	float newY = trackerPos2.y - ((float)getWindowHeight() * .68);
+	gl::draw(mTable, Rectf(newX, newY, newX+getWindowWidth(), newY+getWindowHeight()));
 
-		//dprintf("HERE");
-	dprintf("\nWINDOW WIDTH: %f", (float)getWindowWidth());
-		float newX = trackerPos2.x - ((float)getWindowWidth() * .27);
-		dprintf("\nNEW X POS: %f", newX);
-		//dprintf("NOW HERE");
-		float newY = trackerPos2.y - ((float)getWindowHeight() * .68);
-	gl::draw(mFloorPlan, Rectf(newX, newY, newX+getWindowWidth(), newY+getWindowHeight()));
+	gl::color(Color(0, 0, 1));
 
+	// init stage
+	if (init) {
+		if (mTextTextureInit) {
+			gl::draw(mTextTextureInit, Rectf(getWindowWidth()*.4, getWindowHeight()*.2, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.2 + 300));
+		}
+	}
+
+	gl::drawStrokedRect(Rectf(startHighlightBox.x, startHighlightBox.y, endHighlightBox.x, endHighlightBox.y));
+
+	gl::color(Color::black());
 	// draw page number
 	if (mTextTexture) {
 		gl::draw(mTextTexture, Rectf(getWindowWidth() - 130, 0, getWindowWidth(), 60));
 	}
+
 
 	// draw trails
 	for (vector<vec2> trails : mTrails) {
