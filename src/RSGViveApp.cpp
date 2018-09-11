@@ -98,7 +98,7 @@ private:
 	Font mFontInit;
 	bool init = true;
 	int actorNum = 1;
-	vector<std::string> actorNames;
+	string actorNames[10] = { "", "", "", "", "", "", "", "", "", "" };
 	bool addActor = true;
 
 	vec2 startHighlightBox = vec2(0,0);
@@ -331,6 +331,7 @@ void RSGViveApp::setup()
 
 	//actorNames.push_back("");
 	//mParams->addParam("Actor1", &actorNames[0]);
+
 }
 
 void RSGViveApp::fullScreen() {
@@ -713,14 +714,13 @@ void RSGViveApp::render() {
 }
 
 void RSGViveApp::mouseDown(MouseEvent event) {
-	if (actorNames.size() > 0) {
-		dprintf("actor name: %s", actorNames[0]);
-	}
 	startHighlightBox = event.getPos();
 }
 
 void RSGViveApp::mouseDrag(MouseEvent event) {
 	endHighlightBox = event.getPos();
+
+
 }
 
 void RSGViveApp::button() {
@@ -731,15 +731,10 @@ void RSGViveApp::button() {
 void RSGViveApp::mouseUp(MouseEvent event) {
 	startHighlightBox = vec2(0, 0);
 	endHighlightBox = vec2(0, 0);
-	actorNames.push_back("");
 	if (addActor) {
-		dprintf("\nHEREREEEE");
-		//mParams->addText("Actor Text " + std::to_string(actorNum));
-		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum-1]);
-		//mParams->addParam("Actor " + std::to_string(actorNum), &actorNames.at(actorNum - 1)).updateFn([this] { actorNum++; render(); addActor = true; });;
+		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum-1]).updateFn([this] { actorNum++; render(); addActor = true; });
 	}
-	//addActor = false;
-	actorNum++;
+	addActor = false;
 
 }
 
