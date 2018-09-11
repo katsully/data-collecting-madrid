@@ -98,6 +98,8 @@ private:
 	Font mFontInit;
 	bool init = true;
 	int actorNum = 1;
+	vector<std::string> actorNames;
+	bool addActor = true;
 
 	vec2 startHighlightBox = vec2(0,0);
 	vec2 endHighlightBox = vec2(0,0);
@@ -389,7 +391,6 @@ bool RSGViveApp::bInit()
 	vr::VRChaperone()->GetCalibrationState();
 	vr::VRChaperoneSetup()->RevertWorkingCopy();
 	vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(&playAreaX, &playAreaZ);
-	dprintf("PosX:%f PosZ:%f\n", playAreaX, playAreaZ);
 	
 	return true;
 }
@@ -711,6 +712,11 @@ void RSGViveApp::render() {
 void RSGViveApp::mouseUp(MouseEvent event) {
 	startHighlightBox = vec2(0, 0);
 	endHighlightBox = vec2(0, 0);
+	actorNames.push_back("");
+	if (addActor) {
+		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames.at(actorNum - 1)).updateFn([this] { actorNum++; render(); });;
+	}
+	addActor = false;
 }
 
 void RSGViveApp::mouseDown(MouseEvent event) {
