@@ -328,6 +328,9 @@ void RSGViveApp::setup()
 	mParams->addButton("Next Page", bind(&RSGViveApp::button, this));
 	mParams->addButton("Clear Trails", bind(&RSGViveApp::clear, this));
 	mParams->addButton("Toggle Full Screen", bind(&RSGViveApp::fullScreen, this));
+
+	//actorNames.push_back("");
+	//mParams->addParam("Actor1", &actorNames[0]);
 }
 
 void RSGViveApp::fullScreen() {
@@ -709,17 +712,10 @@ void RSGViveApp::render() {
 	}
 }
 
-void RSGViveApp::mouseUp(MouseEvent event) {
-	startHighlightBox = vec2(0, 0);
-	endHighlightBox = vec2(0, 0);
-	actorNames.push_back("");
-	if (addActor) {
-		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames.at(actorNum - 1)).updateFn([this] { actorNum++; render(); });;
-	}
-	addActor = false;
-}
-
 void RSGViveApp::mouseDown(MouseEvent event) {
+	if (actorNames.size() > 0) {
+		dprintf("actor name: %s", actorNames[0]);
+	}
 	startHighlightBox = event.getPos();
 }
 
@@ -730,6 +726,21 @@ void RSGViveApp::mouseDrag(MouseEvent event) {
 void RSGViveApp::button() {
 	mPageNum++;
 	render();
+}
+
+void RSGViveApp::mouseUp(MouseEvent event) {
+	startHighlightBox = vec2(0, 0);
+	endHighlightBox = vec2(0, 0);
+	actorNames.push_back("");
+	if (addActor) {
+		dprintf("\nHEREREEEE");
+		//mParams->addText("Actor Text " + std::to_string(actorNum));
+		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum-1]);
+		//mParams->addParam("Actor " + std::to_string(actorNum), &actorNames.at(actorNum - 1)).updateFn([this] { actorNum++; render(); addActor = true; });;
+	}
+	//addActor = false;
+	actorNum++;
+
 }
 
 void RSGViveApp::clear() {
