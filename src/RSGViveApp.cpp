@@ -2,8 +2,8 @@
 #include "cinder/app/RendererGl.h"
 #include "cinder/gl/gl.h"
 #include "cinder/params/Params.h"
-//#include "cinder/qtime/AvfWriter.h"
-#include <map>
+#include "../vc2015/tracker.h"
+//#include "cinder/qtime/AvfWriter.h
 
 // from hellovr_opengl_main.cpp
 #include <Windows.h>
@@ -43,6 +43,8 @@ class RSGViveApp : public App {
 	void mouseUp(MouseEvent event) override;
 	void mouseDown(MouseEvent event) override;
 	void mouseDrag( MouseEvent event );
+	void setTrackerName(std::string name);
+	void setTrackerColor();
 	void render();
 	void button();
 	void clear();
@@ -81,7 +83,9 @@ private:
 	vec2 trackerPos3 = vec2(0, 0);
 	vec2 trackerPos4 = vec2(0, 0);
 	vec2 trackerPos5 = vec2(0, 0);
-	vector<pair<string, vec2>> trackers;
+	//vector<pair<string, vec2>> trackers;
+	vector<Tracker> trackers;
+	Tracker activeTracker;
 	float playAreaX, playAreaZ;
 	vector<vector<vec2>> mTrails;
 
@@ -595,16 +599,16 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 
 		// find pair in vector by serial number
-		auto it = find_if(trackers.begin(), trackers.end(), [&deviceName](const std::pair<string, vec2>& element) { return element.first == deviceName; });
+		auto it = find_if(trackers.begin(), trackers.end(), [&deviceName](const Tracker& element) { return element.serialNumber == deviceName; });
 		// item exists in map
 		if (it != trackers.end()) {
 			// update key in map
-			it->second = vec2(newX, newZ);
+			it->position = vec2(newX, newZ);
 		}
 		// item does not exist
 		else {
 			// not found, insert in map
-			trackers.push_back(make_pair(deviceName, vec2(newX, newZ)));
+			trackers.push_back(Tracker(deviceName, vec2(newX, newZ)));
 		}
 	}
 
@@ -711,7 +715,14 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 
 void RSGViveApp::mouseDrag(MouseEvent event) {
 	endHighlightBox = event.getPos();
-
+	Rectf rect = Rectf(startHighlightBox, endHighlightBox);
+	for (Tracker &tracker : trackers) {
+		// check if tracker in square
+		if (rect.contains(tracker.position)) {
+			tracker.select();
+			activeTracker = tracker;
+		}
+	}
 
 }
 
@@ -724,10 +735,31 @@ void RSGViveApp::mouseUp(MouseEvent event) {
 	startHighlightBox = vec2(0, 0);
 	endHighlightBox = vec2(0, 0);
 	if (addActor) {
-		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum-1]).updateFn([this] { actorNum++; render(); addActor = true; });
+		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum - 1]).updateFn([this] { setTrackerName(actorNames[actorNum - 1]); actorNum++; render(); addActor = true;  });
+		mParams->addParam("Color for Actor " + std::to_string(actorNum), &activeTracker.color).updateFn([this] {setTrackerColor(); });
 	}
 	addActor = false;
 
+}
+
+void RSGViveApp::setTrackerName(std::string name) {
+	for (Tracker &tracker : trackers) {
+		// check if tracker in square
+		if (tracker.selected) {
+			tracker.name = name;
+		}
+	}
+}
+
+
+void RSGViveApp::setTrackerColor() {
+	for (Tracker &tracker : trackers) {
+		// check if tracker in square
+		if (tracker.selected) {
+			tracker.color = activeTracker.color;
+			tracker.selected = false;
+		}
+	}
 }
 
 void RSGViveApp::clear() {
@@ -787,17 +819,15 @@ void RSGViveApp::draw()
 
 
 	// draw trails
-	for (vector<vec2> trails : mTrails) {
-		for (vec2& t : trails) {
-			gl::drawSolidCircle(t, 5);
-		}
-	}
+	//for (vector<vec2> trails : mTrails) {
+	//	for (vec2& t : trails) {
+	//		gl::drawSolidCircle(t, 5);
+	//	}
+	//}
 
-	int i = 0;
-	for (pair<string, vec2> &tracker : trackers) {
-		gl::color(colors[i]);
-		gl::drawSolidCircle(tracker.second, 15);
-		i++;
+	for (Tracker &tracker : trackers) {
+		gl::color(tracker.color);
+		gl::drawSolidCircle(tracker.position, 100);
 	}
 
 	/*gl::color(Color(1, 0, 0));
@@ -824,12 +854,12 @@ void RSGViveApp::draw()
 		mTrails[4].push_back(trackerPos5);
 	}*/
 
-	for (vector<vec2>& trails : mTrails) {
-		if (trails.size() > mTrailLimit && trails.size() > 1) {
-			int n = trails.size() - mTrailLimit;
-			trails.erase(trails.begin(), trails.begin() + n);
-		}
-	}
+	//for (vector<vec2>& trails : mTrails) {
+	//	if (trails.size() > mTrailLimit && trails.size() > 1) {
+	//		int n = trails.size() - mTrailLimit;
+	//		trails.erase(trails.begin(), trails.begin() + n);
+	//	}
+	//}
 
 
 	mParams->draw();
