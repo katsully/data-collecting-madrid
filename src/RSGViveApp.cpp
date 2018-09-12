@@ -3,6 +3,7 @@
 #include "cinder/gl/gl.h"
 #include "cinder/params/Params.h"
 //#include "cinder/qtime/AvfWriter.h"
+#include <map>
 
 // from hellovr_opengl_main.cpp
 #include <Windows.h>
@@ -80,6 +81,7 @@ private:
 	vec2 trackerPos3 = vec2(0, 0);
 	vec2 trackerPos4 = vec2(0, 0);
 	vec2 trackerPos5 = vec2(0, 0);
+	vector<pair<string, vec2>> trackers;
 	float playAreaX, playAreaZ;
 	vector<vector<vec2>> mTrails;
 
@@ -99,6 +101,7 @@ private:
 	bool init = true;
 	int actorNum = 1;
 	string actorNames[10] = { "", "", "", "", "", "", "", "", "", "" };
+	Color colors[5] = { Color(1,0,0), Color(0,1,0), Color(0,0,1), Color(1,1,0), Color(0,1,1) };
 	bool addActor = true;
 
 	vec2 startHighlightBox = vec2(0,0);
@@ -328,10 +331,6 @@ void RSGViveApp::setup()
 	mParams->addButton("Next Page", bind(&RSGViveApp::button, this));
 	mParams->addButton("Clear Trails", bind(&RSGViveApp::clear, this));
 	mParams->addButton("Toggle Full Screen", bind(&RSGViveApp::fullScreen, this));
-
-	//actorNames.push_back("");
-	//mParams->addParam("Actor1", &actorNames[0]);
-
 }
 
 void RSGViveApp::fullScreen() {
@@ -510,17 +509,9 @@ void RSGViveApp::printPositionData() {
 				vr::VRSystem()->GetStringTrackedDeviceProperty(unDevice, vr::Prop_SerialNumber_String, serialNumber, sizeof(serialNumber));
 
 				//dprintf("\nSerial number: %s ", serialNumber);
+				//dprintf("\nNumber of trackers: %i ", trackers.size());
+				printDevicePositionalData(serialNumber, poseMatrix, position, quaternion);
 
-				
-				if (strcmp(serialNumber, "LHR-9F44C576") == 0) {
-					printDevicePositionalData("tracker1", poseMatrix, position, quaternion);
-				}
-				else if (strcmp(serialNumber, "LHR-60182D91") == 0) {
-					printDevicePositionalData("tracker2", poseMatrix, position, quaternion);
-				}
-				else if (strcmp(serialNumber, "LHR-A434BAF7") == 0) {
-					printDevicePositionalData("tracker3", poseMatrix, position, quaternion);
-				}
 				break;
 
 			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
@@ -589,7 +580,6 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 	QueryPerformanceCounter(&qpc);
 
 	// x axis is left-right, y axis is up-down, z axis is forward-back
-
 	if (strcmp(deviceName, "LeftHand") == 0) {
 		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
@@ -600,20 +590,22 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos2 = vec2(newX, newZ);
 	}
-	else if (strcmp(deviceName, "tracker1") == 0) {
+	else {
 		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
-		trackerPos3 = vec2(newX, newZ);
-	}
-	else if (strcmp(deviceName, "tracker2") == 0) {
-		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
-		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
-		trackerPos4 = vec2(newX, newZ);
-	}
-	else if (strcmp(deviceName, "tracker3") == 0) {
-		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
-		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
-		trackerPos5 = vec2(newX, newZ);
+
+		// find pair in vector by serial number
+		auto it = find_if(trackers.begin(), trackers.end(), [&deviceName](const std::pair<string, vec2>& element) { return element.first == deviceName; });
+		// item exists in map
+		if (it != trackers.end()) {
+			// update key in map
+			it->second = vec2(newX, newZ);
+		}
+		// item does not exist
+		else {
+			// not found, insert in map
+			trackers.push_back(make_pair(deviceName, vec2(newX, newZ)));
+		}
 	}
 
 	// Uncomment this if you want to print entire transform matrix that contains both position and rotation matrix.
@@ -801,7 +793,14 @@ void RSGViveApp::draw()
 		}
 	}
 
-	gl::color(Color(1, 0, 0));
+	int i = 0;
+	for (pair<string, vec2> &tracker : trackers) {
+		gl::color(colors[i]);
+		gl::drawSolidCircle(tracker.second, 15);
+		i++;
+	}
+
+	/*gl::color(Color(1, 0, 0));
 	gl::drawSolidCircle(trackerPos1, 15);
 	if (mTrails[0].size() == 0 || mTrails[0].back() != trackerPos1) {
 		mTrails[0].push_back(trackerPos1);
@@ -823,7 +822,7 @@ void RSGViveApp::draw()
 	gl::drawSolidRect(Rectf(trackerPos5.x, trackerPos5.y, trackerPos5.x + 15, trackerPos5.y + 15));
 	if (mTrails[4].size() == 0 || mTrails[4].back() != trackerPos5) {
 		mTrails[4].push_back(trackerPos5);
-	}
+	}*/
 
 	for (vector<vec2>& trails : mTrails) {
 		if (trails.size() > mTrailLimit && trails.size() > 1) {
