@@ -9,7 +9,8 @@ Tracker::Tracker()
 Tracker::Tracker(std::string number, cinder::vec2 pos) {
 	this->serialNumber = number;
 	this->position = pos;
-	this->color = cinder::Color(cinder::Rand::randFloat(1.0f), cinder::Rand::randFloat(1.0f), cinder::Rand::randFloat(1.0f));
+	// TODO: alpha at 55%
+	this->color = cinder::ColorA(cinder::Rand::randFloat(1.0f), cinder::Rand::randFloat(1.0f), cinder::Rand::randFloat(1.0f), 0.55f);
 	this->name = "";
 	this->selected = false;
 }
@@ -22,5 +23,5 @@ Tracker::~Tracker()
 
 void Tracker::select() {
 	this->selected = true;
-	this->color = cinder::Color(0, 0, 1);
+	this->color = cinder::ColorA(0, 0, 1, .45);
 }

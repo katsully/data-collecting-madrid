@@ -106,7 +106,7 @@ private:
 	int actorNum = 1;
 	string actorNames[10] = { "", "", "", "", "", "", "", "", "", "" };
 	Color colors[5] = { Color(1,0,0), Color(0,1,0), Color(0,0,1), Color(1,1,0), Color(0,1,1) };
-	bool addActor = true;
+	bool addActor = false;
 
 	vec2 startHighlightBox = vec2(0,0);
 	vec2 endHighlightBox = vec2(0,0);
@@ -721,6 +721,7 @@ void RSGViveApp::mouseDrag(MouseEvent event) {
 		if (rect.contains(tracker.position)) {
 			tracker.select();
 			activeTracker = tracker;
+			addActor = true;
 		}
 	}
 
@@ -735,8 +736,10 @@ void RSGViveApp::mouseUp(MouseEvent event) {
 	startHighlightBox = vec2(0, 0);
 	endHighlightBox = vec2(0, 0);
 	if (addActor) {
-		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum - 1]).updateFn([this] { setTrackerName(actorNames[actorNum - 1]); actorNum++; render(); addActor = true;  });
-		mParams->addParam("Color for Actor " + std::to_string(actorNum), &activeTracker.color).updateFn([this] {setTrackerColor(); });
+		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum-1]).updateFn([this] { setTrackerName(actorNames[actorNum-1]); render(); });
+		// TODO: get fixed colors to choose from
+		mParams->addParam("Color for Actor " + std::to_string(actorNum), &trackers[actorNum-1].color).updateFn([this] {setTrackerColor(); });
+		actorNum++;
 	}
 	addActor = false;
 
@@ -827,7 +830,8 @@ void RSGViveApp::draw()
 
 	for (Tracker &tracker : trackers) {
 		gl::color(tracker.color);
-		gl::drawSolidCircle(tracker.position, 100);
+		// TODO: png not circle
+		gl::drawSolidCircle(tracker.position, 25);
 	}
 
 	/*gl::color(Color(1, 0, 0));
