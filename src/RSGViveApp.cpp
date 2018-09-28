@@ -35,6 +35,8 @@ void threadSleep(unsigned long nMilliseconds)
 static bool g_bPrintf = true;
 
 
+// TODO: new text: place tracker on hightlighted set piece and click on the tracker
+
 class RSGViveApp : public App {
   public:
 	void setup() override;
@@ -130,6 +132,11 @@ private:
 
 	vec2 startHighlightBox = vec2(0,0);
 	vec2 endHighlightBox = vec2(0,0);
+
+	// text for "are you done with actors?"
+	gl::TextureRef mTextTextureDone;
+	vec2 mSizeDone;
+	Font mFontDone;
 
 	gl::TextureRef mTable;
 	gl::TextureRef mIsland;
@@ -334,9 +341,13 @@ void RSGViveApp::setup()
 #else
 	mFont = Font("Times New Roman", 32);
 	mFontInit = Font("Times New Roman", 64);
+	mFontDone = Font("Times New Roman", 54);
+
 #endif
 	mSize = vec2(100, 100);
 	mSizeInit = vec2(600, 300);
+	mSizeDone = vec2(600, 800);
+
 
 	render();
 
@@ -727,25 +738,39 @@ void RSGViveApp::render() {
 
 	if (init) {
 		string txt2 = "Click and Drag to highlight the two trackers that represent Actor " + std::to_string(actorNum);
+		string txt3 = "Are you done adding actors?";
 		TextBox tbox = TextBox().alignment(TextBox::LEFT).font(mFontInit).size(ivec2(mSizeInit.x, TextBox::GROW)).text(txt2);
+		TextBox tbox2 = TextBox().alignment(TextBox::LEFT).font(mFontDone).size(ivec2(mSizeDone.x, TextBox::GROW)).text(txt3);
 		tbox.setColor(Color(0,0,1));
+		tbox.setColor(Color(0, 0, 1));
 		mTextTextureInit = gl::Texture2d::create(tbox.render());
+		mTextTextureDone = gl::Texture2d::create(tbox2.render());
 	}
 }
 
 void RSGViveApp::mouseDown(MouseEvent event) {
-	startHighlightBox = event.getPos();
+	if (init) {
+		Rectf rect = Rectf(getWindowWidth()*.75, getWindowHeight() * .45, getWindowWidth()*.85, getWindowHeight() * .55);
+		if (rect.contains(event.getPos())) {
+			init = false;
+		}
+		else {
+			startHighlightBox = event.getPos();
+		}
+	}
 }
 
 void RSGViveApp::mouseDrag(MouseEvent event) {
-	endHighlightBox = event.getPos();
-	Rectf rect = Rectf(startHighlightBox, endHighlightBox);
-	for (Tracker &tracker : trackers) {
-		// check if tracker in square
-		if (rect.contains(tracker.position)) {
-			tracker.select();
-			activeTracker = tracker;
-			addActor = true;
+	if (init) {
+		endHighlightBox = event.getPos();
+		Rectf rect = Rectf(startHighlightBox, endHighlightBox);
+		for (Tracker &tracker : trackers) {
+			// check if tracker in square
+			if (rect.contains(tracker.position)) {
+				tracker.select();
+				activeTracker = tracker;
+				addActor = true;
+			}
 		}
 	}
 }
@@ -756,20 +781,20 @@ void RSGViveApp::button() {
 }
 
 void RSGViveApp::mouseUp(MouseEvent event) {
-	startHighlightBox = vec2(0, 0);
-	endHighlightBox = vec2(0, 0);
-	if (addActor) {
-		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum-1]).updateFn([this] { setTrackerName(actorNames[actorNum-1]); render(); });
-		// TODO: get fixed colors to choose from
-		mParams->addParam("Pick a Color", mEnumNames, &mEnumSelection)
-			.keyDecr("[")
-			.keyIncr("]")
-			.updateFn([this] { setTrackerColor(); });
-		//mParams->addParam("Color for Actor " + std::to_string(actorNum), &trackers[actorNum-1].color).updateFn([this] {setTrackerColor(); });
-		actorNum++;
+	if (init) {
+		startHighlightBox = vec2(0, 0);
+		endHighlightBox = vec2(0, 0);
+		if (addActor) {
+			mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum - 1]).updateFn([this] { setTrackerName(actorNames[actorNum - 1]); render(); });
+			// TODO: get fixed colors to choose from
+			mParams->addParam("Pick a Color", mEnumNames, &mEnumSelection)
+				.keyDecr("[")
+				.keyIncr("]")
+				.updateFn([this] { setTrackerColor(); });
+			actorNum++;
+		}
+		addActor = false;
 	}
-	addActor = false;
-
 }
 
 void RSGViveApp::setTrackerName(std::string name) {
@@ -838,6 +863,10 @@ void RSGViveApp::draw()
 	if (init) {
 		if (mTextTextureInit) {
 			gl::draw(mTextTextureInit, Rectf(getWindowWidth()*.4, getWindowHeight()*.2, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.2 + 300));
+		}
+		if (mTextTextureInit) {
+			gl::draw(mTextTextureDone, Rectf(getWindowWidth()*.4, getWindowHeight()*.4, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.4 + 300));
+			gl::drawSolidRect(Rectf(getWindowWidth()*.75, getWindowHeight() * .45, getWindowWidth()*.85, getWindowHeight() * .55));
 		}
 	}
 
