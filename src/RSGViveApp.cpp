@@ -83,7 +83,6 @@ private:
 	vec2 trackerPos3 = vec2(0, 0);
 	vec2 trackerPos4 = vec2(0, 0);
 	vec2 trackerPos5 = vec2(0, 0);
-	//vector<pair<string, vec2>> trackers;
 	vector<Tracker> trackers;
 	Tracker activeTracker;
 	float playAreaX, playAreaZ;
@@ -98,6 +97,10 @@ private:
 	vec2 mSize;
 	Font mFont;
 
+	// for the HOH log
+	gl::TextureRef mTextureLogo;
+	vec2 mSizeLogo;
+
 	// For the initizaltion text
 	gl::TextureRef mTextTextureInit;
 	vec2 mSizeInit;
@@ -105,7 +108,21 @@ private:
 	bool init = true;
 	int actorNum = 1;
 	string actorNames[10] = { "", "", "", "", "", "", "", "", "", "" };
-	Color colors[5] = { Color(1,0,0), Color(0,1,0), Color(0,0,1), Color(1,1,0), Color(0,1,1) };
+	Color colors[7] = { 
+		// blue
+		Color(0,146,187),
+		// green
+		Color(16,157,140),
+		// orange
+		Color(238,173,81),
+		// pink
+		Color(230,33,112),
+		// purple
+		Color(65,50,107),
+		// red
+		Color(216, 49, 57),
+		// yellow
+		Color(241, 230, 89) };
 	bool addActor = false;
 
 	vec2 startHighlightBox = vec2(0,0);
@@ -829,7 +846,8 @@ void RSGViveApp::draw()
 	//}
 
 	for (Tracker &tracker : trackers) {
-		gl::color(tracker.color);
+		//gl::color(tracker.color);
+		gl::color(colors[0]);
 		// TODO: png not circle
 		gl::drawSolidCircle(tracker.position, 25);
 	}
