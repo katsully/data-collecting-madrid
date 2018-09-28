@@ -64,7 +64,7 @@ class RSGViveApp : public App {
 	vr::HmdQuaternion_t getRotation(vr::HmdMatrix34_t matrix);
 	vr::HmdVector3_t getPosition(vr::HmdMatrix34_t matrix);
 	void printDevicePositionalData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::HmdVector3_t position, vr::HmdQuaternion_t quaternion);
-	void processVREvent(const vr::VREvent_t & event);
+	// void processVREvent(const vr::VREvent_t & event);
 
 	void updateHMDMatrixPose();
 
@@ -108,21 +108,24 @@ private:
 	bool init = true;
 	int actorNum = 1;
 	string actorNames[10] = { "", "", "", "", "", "", "", "", "", "" };
-	Color colors[7] = { 
+	vector<ColorA> colors = { 
 		// blue
-		Color(0,146,187),
+		ColorA(0,.57,.73, .55),
 		// green
-		Color(16,157,140),
+		ColorA(.06,.62,.55,.55),
 		// orange
-		Color(238,173,81),
+		ColorA(.93,.68,.32,.55),
 		// pink
-		Color(230,33,112),
+		ColorA(.9,.13,.44,.55),
 		// purple
-		Color(65,50,107),
+		ColorA(.25,.2,.42,.55),
 		// red
-		Color(216, 49, 57),
+		ColorA(.88, .19, .22,.55),
 		// yellow
-		Color(241, 230, 89) };
+		ColorA(.95, .9, .35,.55) };
+	// Add an enum (list) selector.
+	int mEnumSelection = 0;
+	vector<string> mEnumNames;
 	bool addActor = false;
 
 	vec2 startHighlightBox = vec2(0,0);
@@ -298,6 +301,8 @@ RSGViveApp::~RSGViveApp()
 
 void RSGViveApp::setup()
 {
+	dprintf("\n FIRST %i", colors[5].r);
+	
 	m_pHMD = NULL;
 	chap = NULL;
 	m_strPoseClasses = "";
@@ -346,12 +351,14 @@ void RSGViveApp::setup()
 
 	// set up parameters
 	// Create the interface and give it a name
-	mParams = params::InterfaceGl::create(getWindow(), "Ready Set Go", toPixels(ivec2(200, 200)));
+	mParams = params::InterfaceGl::create(getWindow(), "Ready Set Go", toPixels(ivec2(200, 200)), ColorA(1.0,0,1.0, 0.25));
 	mParams->addParam("Trails", &mTrailLimit);
 	mParams->addParam("Recording", &mRecord);
 	mParams->addButton("Next Page", bind(&RSGViveApp::button, this));
 	mParams->addButton("Clear Trails", bind(&RSGViveApp::clear, this));
 	mParams->addButton("Toggle Full Screen", bind(&RSGViveApp::fullScreen, this));
+
+	mEnumNames = { "blue", "green", "orange", "pink", "purple", "red", "yellow" };
 }
 
 void RSGViveApp::fullScreen() {
@@ -451,11 +458,11 @@ bool RSGViveApp::handleInput()
 	bool bRet = false;
 
 	// Process SteamVR events
-	vr::VREvent_t event;
-	while (m_pHMD->PollNextEvent(&event, sizeof(event)))
-	{
-		processVREvent(event);
-	}
+	//vr::VREvent_t event;
+	//while (m_pHMD->PollNextEvent(&event, sizeof(event)))
+	//{
+	//	processVREvent(event);
+	//}
 
 	// print position data from vive trackers
 	printPositionData();
@@ -641,22 +648,22 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 //-----------------------------------------------------------------------------
 // Purpose: Processes a single VR event
 //-----------------------------------------------------------------------------
-void RSGViveApp::processVREvent(const vr::VREvent_t & event)
-{
-	switch (event.eventType)
-	{
-	case vr::VREvent_TrackedDeviceDeactivated:
-	{
-		dprintf("Device %u detached.\n", event.trackedDeviceIndex);
-	}
-	break;
-	case vr::VREvent_TrackedDeviceUpdated:
-	{
-		dprintf("Device %u updated.\n", event.trackedDeviceIndex);
-	}
-	break;
-	}
-}
+//void RSGViveApp::processVREvent(const vr::VREvent_t & event)
+//{
+//	switch (event.eventType)
+//	{
+//	case vr::VREvent_TrackedDeviceDeactivated:
+//	{
+//		dprintf("Device %u detached.\n", event.trackedDeviceIndex);
+//	}
+//	break;
+//	case vr::VREvent_TrackedDeviceUpdated:
+//	{
+//		dprintf("Device %u updated.\n", event.trackedDeviceIndex);
+//	}
+//	break;
+//	}
+//}
 
 //-----------------------------------------------------------------------------
 // Purpose:
@@ -741,7 +748,6 @@ void RSGViveApp::mouseDrag(MouseEvent event) {
 			addActor = true;
 		}
 	}
-
 }
 
 void RSGViveApp::button() {
@@ -755,7 +761,11 @@ void RSGViveApp::mouseUp(MouseEvent event) {
 	if (addActor) {
 		mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum-1]).updateFn([this] { setTrackerName(actorNames[actorNum-1]); render(); });
 		// TODO: get fixed colors to choose from
-		mParams->addParam("Color for Actor " + std::to_string(actorNum), &trackers[actorNum-1].color).updateFn([this] {setTrackerColor(); });
+		mParams->addParam("Pick a Color", mEnumNames, &mEnumSelection)
+			.keyDecr("[")
+			.keyIncr("]")
+			.updateFn([this] { setTrackerColor(); });
+		//mParams->addParam("Color for Actor " + std::to_string(actorNum), &trackers[actorNum-1].color).updateFn([this] {setTrackerColor(); });
 		actorNum++;
 	}
 	addActor = false;
@@ -776,7 +786,9 @@ void RSGViveApp::setTrackerColor() {
 	for (Tracker &tracker : trackers) {
 		// check if tracker in square
 		if (tracker.selected) {
-			tracker.color = activeTracker.color;
+			tracker.color = colors[mEnumSelection];
+			colors.erase(colors.begin() + mEnumSelection);
+			mEnumNames.erase(mEnumNames.begin() + mEnumSelection);
 			tracker.selected = false;
 		}
 	}
@@ -846,20 +858,19 @@ void RSGViveApp::draw()
 	//}
 
 	for (Tracker &tracker : trackers) {
-		//gl::color(tracker.color);
-		gl::color(colors[0]);
+		gl::color(tracker.color);
 		// TODO: png not circle
-		gl::drawSolidCircle(tracker.position, 25);
+		gl::drawSolidCircle(tracker.position, 75);
 	}
 
-	/*gl::color(Color(1, 0, 0));
-	gl::drawSolidCircle(trackerPos1, 15);
-	if (mTrails[0].size() == 0 || mTrails[0].back() != trackerPos1) {
+	//gl::color(Color(1, 0, 0));
+	//gl::drawSolidCircle(trackerPos1, 15);
+	/*if (mTrails[0].size() == 0 || mTrails[0].back() != trackerPos1) {
 		mTrails[0].push_back(trackerPos1);
-	}
-	gl::color(Color(0,0,1));
-	gl::drawSolidCircle(trackerPos2, 15);
-	if (mTrails[1].size() == 0 || mTrails[1].back() != trackerPos2) {
+	}*/
+	//gl::color(Color(0,0,1));
+	//gl::drawSolidCircle(trackerPos2, 15);
+	/*if (mTrails[1].size() == 0 || mTrails[1].back() != trackerPos2) {
 		mTrails[1].push_back(trackerPos2);
 	}	
 	gl::color(Color(0, 1, 0));
