@@ -13,6 +13,7 @@ Tracker::Tracker(std::string number, cinder::vec2 pos) {
 	this->color = cinder::ColorA(cinder::Rand::randFloat(1.0f), cinder::Rand::randFloat(1.0f), cinder::Rand::randFloat(1.0f), 0.55f);
 	this->name = "";
 	this->selected = false;
+	this->actor = false;
 }
 
 

@@ -18,6 +18,7 @@ public:
 	cinder::ColorA color;
 	std::string name;
 	bool selected;
+	bool actor;
 
 	
 };

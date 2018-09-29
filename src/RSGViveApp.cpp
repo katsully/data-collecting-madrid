@@ -14,7 +14,7 @@
 #include "pathtools.h"
 #include "lodepng.h"
 
-// TODO: visuals are using SDL, need to figure out cinder-solution
+// TODO: need to make all assets transparent
 
 using namespace ci;
 using namespace ci::app;
@@ -94,20 +94,20 @@ private:
 	//qtime::MovieWriterRef mMovieExporter;
 	//qtime::MovieWriter::Format format;
 
-	// for the page number text box
-	gl::TextureRef mTextTexture;
-	vec2 mSize;
+	// for the page number
 	Font mFont;
+	gl::TextureFontRef mTextureFont;
+	string txt1="";
 
 	// for the HOH log
 	gl::TextureRef mTextureLogo;
 	vec2 mSizeLogo;
 
 	// For the initizaltion text
-	gl::TextureRef mTextTextureInit;
-	vec2 mSizeInit;
 	Font mFontInit;
-	bool init = true;
+	gl::TextureFontRef mTextureFontInit;
+	string txt2 = "";
+	int init = 0;
 	int actorNum = 1;
 	string actorNames[10] = { "", "", "", "", "", "", "", "", "", "" };
 	vector<ColorA> colors = { 
@@ -134,12 +134,13 @@ private:
 	vec2 endHighlightBox = vec2(0,0);
 
 	// text for "are you done with actors?"
-	gl::TextureRef mTextTextureDone;
-	vec2 mSizeDone;
 	Font mFontDone;
+	gl::TextureFontRef mTextureFontDone;
+	string txt3 = "";
 
-	gl::TextureRef mTable;
-	gl::TextureRef mIsland;
+	// add textureref property to tracker class, assign during init==1, draw pos of texture based on tracker
+	vector<gl::TextureRef> mTextures;
+	int textureIndex = 0;
 
 	vr::IVRSystem *m_pHMD;
 	vr::IVRChaperone *chap;
@@ -319,8 +320,9 @@ void RSGViveApp::setup()
 
 	// load floor plan image
 	try {
-		mTable = gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png")));
-		mIsland = gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001.png")));
+		mTextures.push_back(make_pair(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png"))),vec2(0,0)));
+		//mTextures.push_back(make_pair(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001.png"))), vec2(0,0)));
+		mTextures.push_back(make_pair(gl::Texture::create(loadImage(loadAsset("dog.png"))), vec2(0, 0)));
 	}
 	catch (...) {
 		dprintf("unable to load the texture file!");
@@ -334,20 +336,13 @@ void RSGViveApp::setup()
 		//mMovieExporter = qtime::MovieWriter::create(path, getWindowWidth(), getWindowHeight(), format);
 	// }
 
-	// setting up the text box
-#if defined (CINDER_COCOA)
-	mFont = Font("Helvetica", 24);
-	mFontInit = Font("Helvetica", 24);
-#else
-	mFont = Font("Times New Roman", 32);
-	mFontInit = Font("Times New Roman", 64);
-	mFontDone = Font("Times New Roman", 54);
-
-#endif
-	mSize = vec2(100, 100);
-	mSizeInit = vec2(600, 300);
-	mSizeDone = vec2(600, 800);
-
+	// setting up the text boxes
+	mFont = Font(loadAsset("GothamLight.otf"), 32);
+	mTextureFont = gl::TextureFont::create(mFont);
+	mFontInit = Font(loadAsset("GothamLight.otf"), 64);
+	mTextureFontInit = gl::TextureFont::create(mFontInit);
+	mFontDone = Font(loadAsset("GothamLight.otf"), 54);
+	mTextureFontDone= gl::TextureFont::create(mFontDone);
 
 	render();
 
@@ -731,37 +726,42 @@ Matrix4 RSGViveApp::convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPo
 
 
 void RSGViveApp::render() {
-	string txt1 = "Page " + std::to_string(mPageNum);
-	TextBox tbox = TextBox().alignment(TextBox::LEFT).font(mFont).size(ivec2(mSize.x, TextBox::GROW)).text(txt1);
-	tbox.setColor(Color::white());
-	mTextTexture = gl::Texture2d::create(tbox.render());
+	txt1 = "Page " + std::to_string(mPageNum);
 
-	if (init) {
-		string txt2 = "Click and Drag to highlight the two trackers that represent Actor " + std::to_string(actorNum);
-		string txt3 = "Are you done adding actors?";
-		TextBox tbox = TextBox().alignment(TextBox::LEFT).font(mFontInit).size(ivec2(mSizeInit.x, TextBox::GROW)).text(txt2);
-		TextBox tbox2 = TextBox().alignment(TextBox::LEFT).font(mFontDone).size(ivec2(mSizeDone.x, TextBox::GROW)).text(txt3);
-		tbox.setColor(Color(0,0,1));
-		tbox.setColor(Color(0, 0, 1));
-		mTextTextureInit = gl::Texture2d::create(tbox.render());
-		mTextTextureDone = gl::Texture2d::create(tbox2.render());
+	if (init==0) {
+		txt2 = "Click and Drag to highlight the two trackers that represent Actor " + std::to_string(actorNum);
+		txt3 = "Are you done adding actors?";
+	}
+	else if (init == 1) {
+		txt2 = "Place tracker on left upper corner of highlighted set piece. Click on tracker to confirm.";
+		txt3 = "Are you done setting trackers?";
 	}
 }
 
 void RSGViveApp::mouseDown(MouseEvent event) {
-	if (init) {
+	if (init==0) {
 		Rectf rect = Rectf(getWindowWidth()*.75, getWindowHeight() * .45, getWindowWidth()*.85, getWindowHeight() * .55);
 		if (rect.contains(event.getPos())) {
-			init = false;
+			init = 1;
+			render();
 		}
 		else {
 			startHighlightBox = event.getPos();
 		}
 	}
+	else if (init == 1) {
+		for (Tracker &tracker : trackers) {
+			Rectf rect = Rectf(tracker.position.x -75, tracker.position.y - 75, tracker.position.x +75, tracker.position.y + 75);
+			if (rect.contains(event.getPos())) {
+				mTextures.at(textureIndex).second = &tracker.position;
+				textureIndex++;
+			}
+		}
+	}
 }
 
 void RSGViveApp::mouseDrag(MouseEvent event) {
-	if (init) {
+	if (init==0) {
 		endHighlightBox = event.getPos();
 		Rectf rect = Rectf(startHighlightBox, endHighlightBox);
 		for (Tracker &tracker : trackers) {
@@ -781,7 +781,7 @@ void RSGViveApp::button() {
 }
 
 void RSGViveApp::mouseUp(MouseEvent event) {
-	if (init) {
+	if (init==0) {
 		startHighlightBox = vec2(0, 0);
 		endHighlightBox = vec2(0, 0);
 		if (addActor) {
@@ -812,6 +812,7 @@ void RSGViveApp::setTrackerColor() {
 		// check if tracker in square
 		if (tracker.selected) {
 			tracker.color = colors[mEnumSelection];
+			tracker.actor = true;
 			colors.erase(colors.begin() + mEnumSelection);
 			mEnumNames.erase(mEnumNames.begin() + mEnumSelection);
 			tracker.selected = false;
@@ -852,31 +853,39 @@ void RSGViveApp::draw()
 	gl::clear( Color( 0, 0, 0 ) ); 
 	gl::color(Color::white());
 
-	gl::draw(mIsland, Rectf(0, 0, getWindowWidth(), getWindowHeight()));
-	float newX = trackerPos2.x - ((float)getWindowWidth() * .27);
-	float newY = trackerPos2.y - ((float)getWindowHeight() * .68);
-	gl::draw(mTable, Rectf(newX, newY, newX+getWindowWidth(), newY+getWindowHeight()));
+	if (init == 1) {
+		gl::color(1, 1, 0, .35);
+		if (textureIndex < mTextures.size()) {
+			gl::draw(mTextures.at(textureIndex).first, Rectf(0, 0, getWindowWidth(), getWindowHeight()));
+		}
+	}
+
+	if (init == 1 || init == 2) {
+		gl::color(Color::white());
+		for (int i = 0; i < textureIndex; i++) {
+			dprintf("\nTEXTUREx position: %i", mTextures.at(i).second.x);
+			gl::draw(mTextures.at(i).first, Rectf(mTextures.at(i).second.x, mTextures.at(i).second.y, mTextures.at(i).second.x + getWindowWidth(), mTextures.at(i).second.y + getWindowHeight()));
+		}
+	}
+
+
 
 	gl::color(Color(0, 0, 1));
 
 	// init stage
-	if (init) {
-		if (mTextTextureInit) {
-			gl::draw(mTextTextureInit, Rectf(getWindowWidth()*.4, getWindowHeight()*.2, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.2 + 300));
-		}
-		if (mTextTextureInit) {
-			gl::draw(mTextTextureDone, Rectf(getWindowWidth()*.4, getWindowHeight()*.4, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.4 + 300));
-			gl::drawSolidRect(Rectf(getWindowWidth()*.75, getWindowHeight() * .45, getWindowWidth()*.85, getWindowHeight() * .55));
-		}
+	if (init==0 || init == 1) {
+		mTextureFontInit->drawStringWrapped(txt2, Rectf(getWindowWidth()*.4, getWindowHeight()*.2, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.2 + 300));
+		mTextureFontDone->drawString(txt3, vec2(getWindowWidth()*.4, getWindowHeight()*.45));
+		gl::drawSolidRect(Rectf(getWindowWidth()*.75, getWindowHeight() * .45, getWindowWidth()*.85, getWindowHeight() * .55));
+
+		// draw highlight box
+		gl::drawStrokedRect(Rectf(startHighlightBox.x, startHighlightBox.y, endHighlightBox.x, endHighlightBox.y));
 	}
 
-	gl::drawStrokedRect(Rectf(startHighlightBox.x, startHighlightBox.y, endHighlightBox.x, endHighlightBox.y));
-
-	gl::color(Color::black());
 	// draw page number
-	if (mTextTexture) {
-		gl::draw(mTextTexture, Rectf(getWindowWidth() - 130, 0, getWindowWidth(), 60));
-	}
+	gl::color(Color::black());
+	float fontNameWidth = mTextureFont->measureString(mTextureFont->getName()).x;
+	mTextureFont->drawString(txt1, vec2(getWindowWidth() - fontNameWidth - 10, getWindowHeight()*.1 - mTextureFont->getDescent()));
 
 
 	// draw trails
