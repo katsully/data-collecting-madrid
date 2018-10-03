@@ -141,6 +141,8 @@ private:
 	// add textureref property to tracker class, assign during init==1, draw pos of texture based on tracker
 	vector<gl::TextureRef> mTextures;
 	int textureIndex = 0;
+	vec2 tempTextLoc;
+	bool setMode = true;
 
 	vr::IVRSystem *m_pHMD;
 	vr::IVRChaperone *chap;
@@ -320,9 +322,11 @@ void RSGViveApp::setup()
 
 	// load floor plan image
 	try {
-		mTextures.push_back(make_pair(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png"))),vec2(0,0)));
-		//mTextures.push_back(make_pair(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001.png"))), vec2(0,0)));
-		mTextures.push_back(make_pair(gl::Texture::create(loadImage(loadAsset("dog.png"))), vec2(0, 0)));
+		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png"))));
+		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_01_Island_V001_transparent.png"))));
+		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001_transparent.png"))));
+		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_01_Island_V001_transparent.png"))));
+
 	}
 	catch (...) {
 		dprintf("unable to load the texture file!");
@@ -733,7 +737,8 @@ void RSGViveApp::render() {
 		txt3 = "Are you done adding actors?";
 	}
 	else if (init == 1) {
-		txt2 = "Place tracker on left upper corner of highlighted set piece. Click on tracker to confirm.";
+		txt2 = "Click left upstage corner of highlighed set piece.";
+		//txt2 = "Click left upper corner of highlighted set piece. Then, place tracker on left upper corner of highlighted set piece. Click on tracker to confirm.";
 		txt3 = "Are you done setting trackers?";
 	}
 }
@@ -750,11 +755,20 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 		}
 	}
 	else if (init == 1) {
-		for (Tracker &tracker : trackers) {
-			Rectf rect = Rectf(tracker.position.x -75, tracker.position.y - 75, tracker.position.x +75, tracker.position.y + 75);
-			if (rect.contains(event.getPos())) {
-				mTextures.at(textureIndex).second = &tracker.position;
-				textureIndex++;
+		if (setMode) {
+			tempTextLoc = event.getPos();
+			txt2 = "Place tracker on left upstage corner of highlighted set piece. Click on tracker to confirm.";
+			setMode = false;
+		}
+		else {
+			for (Tracker &tracker : trackers) {
+				Rectf rect = Rectf(tracker.position.x - 75, tracker.position.y - 75, tracker.position.x + 75, tracker.position.y + 75);
+				if (rect.contains(event.getPos())) {
+					tracker.actor = false;
+					tracker.textureIndex = textureIndex;
+					textureIndex++;
+					setMode = true;
+				}
 			}
 		}
 	}
@@ -850,21 +864,23 @@ void RSGViveApp::update()
 
 void RSGViveApp::draw()
 {
-	gl::clear( Color( 0, 0, 0 ) ); 
+	gl::clear( Color::white() ); 
 	gl::color(Color::white());
-
 	if (init == 1) {
-		gl::color(1, 1, 0, .35);
+		gl::color(1, 1, 0, .85);
 		if (textureIndex < mTextures.size()) {
-			gl::draw(mTextures.at(textureIndex).first, Rectf(0, 0, getWindowWidth(), getWindowHeight()));
+			gl::draw(mTextures.at(textureIndex), Rectf(0, 0, getWindowWidth(), getWindowHeight()));
 		}
 	}
 
 	if (init == 1 || init == 2) {
 		gl::color(Color::white());
-		for (int i = 0; i < textureIndex; i++) {
-			dprintf("\nTEXTUREx position: %i", mTextures.at(i).second.x);
-			gl::draw(mTextures.at(i).first, Rectf(mTextures.at(i).second.x, mTextures.at(i).second.y, mTextures.at(i).second.x + getWindowWidth(), mTextures.at(i).second.y + getWindowHeight()));
+		for (Tracker tracker: trackers) {
+			if (tracker.textureIndex != -1) {
+				float newX = tracker.position.x - tempTextLoc.x;
+				float newY = tracker.position.y - tempTextLoc.y;
+				gl::draw(mTextures.at(tracker.textureIndex), Rectf(newX, newY, newX + getWindowWidth(), newY + getWindowHeight()));
+			}
 		}
 	}
 
@@ -898,7 +914,7 @@ void RSGViveApp::draw()
 	for (Tracker &tracker : trackers) {
 		gl::color(tracker.color);
 		// TODO: png not circle
-		gl::drawSolidCircle(tracker.position, 75);
+		gl::drawSolidCircle(tracker.position, 40);
 	}
 
 	//gl::color(Color(1, 0, 0));

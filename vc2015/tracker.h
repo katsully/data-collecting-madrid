@@ -19,6 +19,7 @@ public:
 	std::string name;
 	bool selected;
 	bool actor;
+	int textureIndex;
 
 	
 };
