@@ -323,9 +323,9 @@ void RSGViveApp::setup()
 	// load floor plan image
 	try {
 		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png"))));
-		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_01_Island_V001_transparent.png"))));
+		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_01_V001_transparent.png"))));
 		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001_transparent.png"))));
-		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_01_Island_V001_transparent.png"))));
+		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_03_V001_transparent.png"))));
 
 	}
 	catch (...) {
@@ -466,13 +466,6 @@ bool RSGViveApp::handleInput()
 {
 	//SDL_Event sdlEvent;
 	bool bRet = false;
-
-	// Process SteamVR events
-	//vr::VREvent_t event;
-	//while (m_pHMD->PollNextEvent(&event, sizeof(event)))
-	//{
-	//	processVREvent(event);
-	//}
 
 	// print position data from vive trackers
 	printPositionData();
@@ -654,26 +647,6 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 	//    posMatrix.m[2][0], posMatrix.m[2][1], posMatrix.m[2][2], posMatrix.m[2][3],
 	//    quaternion.w, quaternion.x, quaternion.y, quaternion.z);
 }
-
-//-----------------------------------------------------------------------------
-// Purpose: Processes a single VR event
-//-----------------------------------------------------------------------------
-//void RSGViveApp::processVREvent(const vr::VREvent_t & event)
-//{
-//	switch (event.eventType)
-//	{
-//	case vr::VREvent_TrackedDeviceDeactivated:
-//	{
-//		dprintf("Device %u detached.\n", event.trackedDeviceIndex);
-//	}
-//	break;
-//	case vr::VREvent_TrackedDeviceUpdated:
-//	{
-//		dprintf("Device %u updated.\n", event.trackedDeviceIndex);
-//	}
-//	break;
-//	}
-//}
 
 //-----------------------------------------------------------------------------
 // Purpose:
