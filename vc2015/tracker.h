@@ -15,6 +15,7 @@ public:
 
 	std::string serialNumber;
 	cinder::vec2 position;
+	cinder::vec2 texPosition;
 	cinder::ColorA color;
 	std::string name;
 	bool selected;

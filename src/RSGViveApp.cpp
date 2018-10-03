@@ -14,7 +14,7 @@
 #include "pathtools.h"
 #include "lodepng.h"
 
-// TODO: need to make all assets transparent
+// TODO: wave assets need more white space
 
 using namespace ci;
 using namespace ci::app;
@@ -34,8 +34,6 @@ void threadSleep(unsigned long nMilliseconds)
 
 static bool g_bPrintf = true;
 
-
-// TODO: new text: place tracker on hightlighted set piece and click on the tracker
 
 class RSGViveApp : public App {
   public:
@@ -711,8 +709,8 @@ void RSGViveApp::render() {
 	}
 	else if (init == 1) {
 		txt2 = "Click left upstage corner of highlighed set piece.";
-		//txt2 = "Click left upper corner of highlighted set piece. Then, place tracker on left upper corner of highlighted set piece. Click on tracker to confirm.";
-		txt3 = "Are you done setting trackers?";
+		//txt3 = "Are you done setting trackers?";
+		txt3 = "";
 	}
 }
 
@@ -735,12 +733,14 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 		}
 		else {
 			for (Tracker &tracker : trackers) {
-				Rectf rect = Rectf(tracker.position.x - 75, tracker.position.y - 75, tracker.position.x + 75, tracker.position.y + 75);
+				Rectf rect = Rectf(tracker.position.x - 40, tracker.position.y - 40, tracker.position.x + 40, tracker.position.y + 40);
 				if (rect.contains(event.getPos())) {
 					tracker.actor = false;
 					tracker.textureIndex = textureIndex;
 					textureIndex++;
+					tracker.texPosition = vec2(tempTextLoc.x, tempTextLoc.y);
 					setMode = true;
+					txt2 = "Click left upstage corner of highlighed set piece.";
 				}
 			}
 		}
@@ -773,7 +773,6 @@ void RSGViveApp::mouseUp(MouseEvent event) {
 		endHighlightBox = vec2(0, 0);
 		if (addActor) {
 			mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum - 1]).updateFn([this] { setTrackerName(actorNames[actorNum - 1]); render(); });
-			// TODO: get fixed colors to choose from
 			mParams->addParam("Pick a Color", mEnumNames, &mEnumSelection)
 				.keyDecr("[")
 				.keyIncr("]")
@@ -850,14 +849,10 @@ void RSGViveApp::draw()
 		gl::color(Color::white());
 		for (Tracker tracker: trackers) {
 			if (tracker.textureIndex != -1) {
-				float newX = tracker.position.x - tempTextLoc.x;
-				float newY = tracker.position.y - tempTextLoc.y;
-				gl::draw(mTextures.at(tracker.textureIndex), Rectf(newX, newY, newX + getWindowWidth(), newY + getWindowHeight()));
+				gl::draw(mTextures.at(tracker.textureIndex), Rectf(tracker.position.x - tracker.texPosition.x, tracker.position.y - tracker.texPosition.y, tracker.position.x - tracker.texPosition.x + getWindowWidth(), tracker.position.y - tracker.texPosition.y + getWindowHeight()));
 			}
 		}
 	}
-
-
 
 	gl::color(Color(0, 0, 1));
 
@@ -876,18 +871,27 @@ void RSGViveApp::draw()
 	float fontNameWidth = mTextureFont->measureString(mTextureFont->getName()).x;
 	mTextureFont->drawString(txt1, vec2(getWindowWidth() - fontNameWidth - 10, getWindowHeight()*.1 - mTextureFont->getDescent()));
 
-
-	// draw trails
-	//for (vector<vec2> trails : mTrails) {
-	//	for (vec2& t : trails) {
-	//		gl::drawSolidCircle(t, 5);
-	//	}
-	//}
-
+	int trackerIdx = 0;
 	for (Tracker &tracker : trackers) {
 		gl::color(tracker.color);
 		// TODO: png not circle
 		gl::drawSolidCircle(tracker.position, 40);
+		if (tracker.actor==true && (mTrails[trackerIdx].size() == 0 || mTrails[trackerIdx].back() != tracker.position)) {
+			mTrails[trackerIdx].push_back(tracker.position);
+		}
+		trackerIdx++;
+	}
+
+	// draw trails
+	int trailIdx = 0;
+	for (vector<vec2> trails : mTrails) {
+		if (trailIdx < trackers.size()) {
+			gl::color(trackers[trailIdx].color);
+			for (vec2& t : trails) {
+				gl::drawSolidCircle(t, 5);
+			}
+			trailIdx++;
+		}
 	}
 
 	//gl::color(Color(1, 0, 0));
