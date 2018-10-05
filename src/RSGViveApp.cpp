@@ -43,12 +43,14 @@ class RSGViveApp : public App {
 	void mouseUp(MouseEvent event) override;
 	void mouseDown(MouseEvent event) override;
 	void mouseDrag( MouseEvent event );
+	void keyDown(KeyEvent event ) override;
 	void setTrackerName(std::string name);
 	void setTrackerColor();
 	void render();
 	void button();
 	void clear();
 	void fullScreen();
+	void screenShot();	// saves screenshot
 
 	// from hellovr_opengl_main.cpp
 	RSGViveApp(int argc, char *argv[]);
@@ -64,7 +66,6 @@ class RSGViveApp : public App {
 	vr::HmdQuaternion_t getRotation(vr::HmdMatrix34_t matrix);
 	vr::HmdVector3_t getPosition(vr::HmdMatrix34_t matrix);
 	void printDevicePositionalData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::HmdVector3_t position, vr::HmdQuaternion_t quaternion);
-	// void processVREvent(const vr::VREvent_t & event);
 
 	void updateHMDMatrixPose();
 
@@ -217,6 +218,7 @@ bool GetDigitalActionRisingEdge(vr::VRActionHandle_t action, vr::VRInputValueHan
 	}
 	return actionData.bActive && actionData.bChanged && actionData.bState;
 }
+
 
 //---------------------------------------------------------------------------------------------------------------------
 // Purpose: Returns true if the action is active and had a falling edge
@@ -374,6 +376,16 @@ void RSGViveApp::fullScreen() {
 	setFullScreen(mFullScreen);
 }
 
+
+void RSGViveApp::keyDown(KeyEvent event) {
+	// Key on key...
+	switch (event.getCode()) {
+	case KeyEvent::KEY_s:
+		screenShot();
+		break;
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Helper to get a string from a tracked device property and turn it
 //			into a std::string
@@ -432,16 +444,6 @@ bool RSGViveApp::bInit()
 	vr::VRChaperoneSetup()->GetWorkingPlayAreaSize(&playAreaX, &playAreaZ);
 	
 	return true;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Outputs the string in message to debugging output.
-//          All other parameters are ignored.
-//          Does not return any meaningful value or reference.
-//-----------------------------------------------------------------------------
-void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
-{
-	dprintf("GL Error: %s\n", message);
 }
 
 //-----------------------------------------------------------------------------
@@ -834,10 +836,17 @@ void RSGViveApp::update()
 
 }
 
+// Take screen shot
+void RSGViveApp::screenShot()
+{
+	writeImage(getAppPath() / fs::path("frame" + std::to_string(getElapsedFrames()) + ".png"), copyWindowSurface());
+}
+
 void RSGViveApp::draw()
 {
 	gl::clear( Color::white() ); 
 	gl::color(Color::white());
+
 	if (init == 1) {
 		gl::color(1, 1, 0, .85);
 		if (textureIndex < mTextures.size()) {
@@ -853,6 +862,15 @@ void RSGViveApp::draw()
 			}
 		}
 	}
+
+	int counter = 0;
+	for (gl::TextureRef texture: mTextures) {
+		if (counter > textureIndex || init==0) {
+			gl::draw(texture, Rectf(0, 0, getWindowWidth(), getWindowHeight()));
+		}
+		counter++;
+	}
+
 
 	gl::color(Color(0, 0, 1));
 
