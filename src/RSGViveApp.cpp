@@ -16,7 +16,7 @@
 #include "lodepng.h"
 
 // TODO: wave assets need more white space
-// TODO: get streaming working
+// TODO: get streaming working - SPOUT
 // TODO: add rotation from trackers
 // TODO: add png for blue button
 // TODO: add in HOH logo
