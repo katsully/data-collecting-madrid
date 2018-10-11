@@ -3,6 +3,7 @@
 #include "cinder/gl/gl.h"
 #include "cinder/params/Params.h"
 #include "../vc2015/tracker.h"
+#include "cinder/Timer.h"
 //#include "cinder/qtime/AvfWriter.h
 
 // from hellovr_opengl_main.cpp
@@ -15,16 +16,13 @@
 #include "lodepng.h"
 
 // TODO: wave assets need more white space
-// TODO: get this working with more than 3 vive trackers
 // TODO: get streaming working
 // TODO: add rotation from trackers
-// TODO: fix clear trails
 // TODO: add png for blue button
 // TODO: add in HOH logo
-// TODO: 2 trackers per actor
 // TODO: Can you change the actor name in the params to the correct color?
 // TODO: make standalone app w/ andrews icon
-// TODO: add "DONE WITH CALLIBRATION THINGY" after going through all set pieces? OR "adding done with set pieces?"
+// TODO: wake trackers up from standby mode
 
 // MAYBE?
 // Drag and drop feature for the textures
@@ -149,6 +147,9 @@ private:
 	Font mFontDone;
 	gl::TextureFontRef mTextureFontDone;
 	string txt3 = "";
+
+	// animation timer
+	Timer mTimer;
 
 	// add textureref property to tracker class, assign during init==1, draw pos of texture based on tracker
 	vector<gl::TextureRef> mTextures;
@@ -752,8 +753,9 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 				if (rect.contains(event.getPos())) {
 					tracker.actor = false;
 					tracker.textureIndex = textureIndex;
-					textureIndex++;
 					tracker.texPosition = vec2(tempTextLoc.x, tempTextLoc.y);
+					textureIndex++;
+					if(textureIndex )
 					setMode = true;
 					txt2 = "Click left upstage corner of highlighed set piece.";
 				}
@@ -838,7 +840,7 @@ void RSGViveApp::setTrackerColor() {
 }
 
 void RSGViveApp::clear() {
-	for (vector<vec2> t : mTrails) {
+	for (vector<vec2> &t : mTrails) {
 		t.clear();
 	}
 }
@@ -881,6 +883,13 @@ void RSGViveApp::draw()
 		if (textureIndex < mTextures.size()) {
 			gl::draw(mTextures.at(textureIndex), Rectf(0, 0, getWindowWidth(), getWindowHeight()));
 		}
+		else {
+			init = 2;
+			txt2 = "ALL SET!";
+			txt3 = "";
+			mTimer.start();
+		}
+
 	}
 
 	if (init == 1 || init == 2) {
@@ -913,6 +922,14 @@ void RSGViveApp::draw()
 		gl::drawStrokedRect(Rectf(startHighlightBox.x, startHighlightBox.y, endHighlightBox.x, endHighlightBox.y));
 	}
 
+	// drawing ALL SET
+	if (init == 2 && mTimer.getSeconds() < 3) {
+		mTextureFontInit->drawStringWrapped(txt2, Rectf(getWindowWidth()*.4, getWindowHeight()*.2, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.2 + 300));
+	}
+	else if (mTimer.getSeconds() > 3) {
+		mTimer.stop();
+	}
+
 	// draw page number
 	gl::color(Color::black());
 	float fontNameWidth = mTextureFont->measureString(mTextureFont->getName()).x;
@@ -940,38 +957,6 @@ void RSGViveApp::draw()
 			trailIdx++;
 		}
 	}
-
-	//gl::color(Color(1, 0, 0));
-	//gl::drawSolidCircle(trackerPos1, 15);
-	/*if (mTrails[0].size() == 0 || mTrails[0].back() != trackerPos1) {
-		mTrails[0].push_back(trackerPos1);
-	}*/
-	//gl::color(Color(0,0,1));
-	//gl::drawSolidCircle(trackerPos2, 15);
-	/*if (mTrails[1].size() == 0 || mTrails[1].back() != trackerPos2) {
-		mTrails[1].push_back(trackerPos2);
-	}	
-	gl::color(Color(0, 1, 0));
-	gl::drawSolidRect(Rectf(trackerPos3.x, trackerPos3.y, trackerPos3.x + 15, trackerPos3.y + 15));
-	if (mTrails[2].size() == 0 || mTrails[2].back() != trackerPos3) {
-		mTrails[2].push_back(trackerPos3);
-	}	gl::color(Color::white());
-	gl::drawSolidRect(Rectf(trackerPos4.x, trackerPos4.y, trackerPos4.x + 15, trackerPos4.y + 15));
-	if (mTrails[3].size() == 0 || mTrails[3].back() != trackerPos4) {
-		mTrails[3].push_back(trackerPos4);
-	}	gl::color(Color(1, 0, 1));
-	gl::drawSolidRect(Rectf(trackerPos5.x, trackerPos5.y, trackerPos5.x + 15, trackerPos5.y + 15));
-	if (mTrails[4].size() == 0 || mTrails[4].back() != trackerPos5) {
-		mTrails[4].push_back(trackerPos5);
-	}*/
-
-	//for (vector<vec2>& trails : mTrails) {
-	//	if (trails.size() > mTrailLimit && trails.size() > 1) {
-	//		int n = trails.size() - mTrailLimit;
-	//		trails.erase(trails.begin(), trails.begin() + n);
-	//	}
-	//}
-
 
 	mParams->draw();
 }
