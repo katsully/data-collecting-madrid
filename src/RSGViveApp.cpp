@@ -4,7 +4,7 @@
 #include "cinder/params/Params.h"
 #include "../vc2015/tracker.h"
 #include "cinder/Timer.h"
-//#include "cinder/qtime/AvfWriter.h
+#include "CiSpoutOut.h"
 
 // from hellovr_opengl_main.cpp
 #include <Windows.h>
@@ -100,9 +100,8 @@ private:
 	float playAreaX, playAreaZ;
 	vector<vector<vec2>> mTrails;
 
-	// quicktime
-	//qtime::MovieWriterRef mMovieExporter;
-	//qtime::MovieWriter::Format format;
+	// Spout
+	SpoutOut mSpoutOut;
 
 	// for the page number
 	Font mFont;
@@ -206,56 +205,6 @@ private:
 	vr::VRActionSetHandle_t m_actionsetDemo = vr::k_ulInvalidActionSetHandle;
 };
 
-void prepareSettings(RSGViveApp::Settings* settings)
-{
-	settings->setWindowSize(808, 480);
-}
-
-//---------------------------------------------------------------------------------------------------------------------
-// Purpose: Returns true if the action is active and had a rising edge
-//---------------------------------------------------------------------------------------------------------------------
-bool GetDigitalActionRisingEdge(vr::VRActionHandle_t action, vr::VRInputValueHandle_t *pDevicePath = nullptr)
-{
-	vr::InputDigitalActionData_t actionData;
-	vr::VRInput()->GetDigitalActionData(action, &actionData, sizeof(actionData));
-	if (pDevicePath)
-	{
-		*pDevicePath = vr::k_ulInvalidInputValueHandle;
-		if (actionData.bActive)
-		{
-			vr::InputOriginInfo_t originInfo;
-			if (vr::VRInputError_None == vr::VRInput()->GetOriginTrackedDeviceInfo(actionData.activeOrigin, &originInfo, sizeof(originInfo)))
-			{
-				*pDevicePath = originInfo.devicePath;
-			}
-		}
-	}
-	return actionData.bActive && actionData.bChanged && actionData.bState;
-}
-
-
-//---------------------------------------------------------------------------------------------------------------------
-// Purpose: Returns true if the action is active and had a falling edge
-//---------------------------------------------------------------------------------------------------------------------
-bool GetDigitalActionFallingEdge(vr::VRActionHandle_t action, vr::VRInputValueHandle_t *pDevicePath = nullptr)
-{
-	vr::InputDigitalActionData_t actionData;
-	vr::VRInput()->GetDigitalActionData(action, &actionData, sizeof(actionData));
-	if (pDevicePath)
-	{
-		*pDevicePath = vr::k_ulInvalidInputValueHandle;
-		if (actionData.bActive)
-		{
-			vr::InputOriginInfo_t originInfo;
-			if (vr::VRInputError_None == vr::VRInput()->GetOriginTrackedDeviceInfo(actionData.activeOrigin, &originInfo, sizeof(originInfo)))
-			{
-				*pDevicePath = originInfo.devicePath;
-			}
-		}
-	}
-	return actionData.bActive && actionData.bChanged && !actionData.bState;
-}
-
 //---------------------------------------------------------------------------------------------------------------------
 // Purpose: Returns true if the action is active and its state is true
 //---------------------------------------------------------------------------------------------------------------------
@@ -304,13 +253,16 @@ RSGViveApp::RSGViveApp(int argc, char *argv[])
 	: m_pHMD(NULL)
 	, chap(NULL)
 	, m_strPoseClasses("")
+	, mSpoutOut("cispout", app::getWindowSize())
 {
 
 	// other initialization tasks are done in BInit
 	memset(m_rDevClassChar, 0, sizeof(m_rDevClassChar));
 }
 
-RSGViveApp::RSGViveApp() {
+RSGViveApp::RSGViveApp()
+	: mSpoutOut("cispout", app::getWindowSize())
+{
 
 }
 
@@ -490,19 +442,6 @@ bool RSGViveApp::handleInput()
 	vr::VRActiveActionSet_t actionSet = { 0 };
 	actionSet.ulActionSet = m_actionsetDemo;
 	vr::VRInput()->UpdateActionState(&actionSet, sizeof(actionSet), 1);
-
-	vr::VRInputValueHandle_t ulHapticDevice;
-	if (GetDigitalActionRisingEdge(m_actionTriggerHaptic, &ulHapticDevice))
-	{
-		if (ulHapticDevice == m_rHand[Left].m_source)
-		{
-			vr::VRInput()->TriggerHapticVibrationAction(m_rHand[Left].m_actionHaptic, 0, 1, 4.f, 1.0f);
-		}
-		if (ulHapticDevice == m_rHand[Right].m_source)
-		{
-			vr::VRInput()->TriggerHapticVibrationAction(m_rHand[Right].m_actionHaptic, 0, 1, 4.f, 1.0f);
-		}
-	}
 
 	return bRet;
 }
@@ -958,7 +897,10 @@ void RSGViveApp::draw()
 		}
 	}
 
+	// send to Spout
+	mSpoutOut.sendViewport();
+
 	mParams->draw();
 }
 
-CINDER_APP( RSGViveApp, RendererGl, prepareSettings )
+CINDER_APP( RSGViveApp, RendererGl )
