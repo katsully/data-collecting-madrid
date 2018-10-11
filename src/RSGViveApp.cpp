@@ -15,6 +15,19 @@
 #include "lodepng.h"
 
 // TODO: wave assets need more white space
+// TODO: get this working with more than 3 vive trackers
+// TODO: get streaming working
+// TODO: add rotation from trackers
+// TODO: fix clear trails
+// TODO: add png for blue button
+// TODO: add in HOH logo
+// TODO: 2 trackers per actor
+// TODO: Can you change the actor name in the params to the correct color?
+// TODO: make standalone app w/ andrews icon
+// TODO: add "DONE WITH CALLIBRATION THINGY" after going through all set pieces? OR "adding done with set pieces?"
+
+// MAYBE?
+// Drag and drop feature for the textures
 
 using namespace ci;
 using namespace ci::app;
@@ -43,6 +56,7 @@ class RSGViveApp : public App {
 	void mouseUp(MouseEvent event) override;
 	void mouseDown(MouseEvent event) override;
 	void mouseDrag( MouseEvent event );
+	vector<Tracker> getSelected();
 	void keyDown(KeyEvent event ) override;
 	void setTrackerName(std::string name);
 	void setTrackerColor();
@@ -85,7 +99,6 @@ private:
 	vec2 trackerPos4 = vec2(0, 0);
 	vec2 trackerPos5 = vec2(0, 0);
 	vector<Tracker> trackers;
-	Tracker activeTracker;
 	float playAreaX, playAreaZ;
 	vector<vector<vec2>> mTrails;
 
@@ -710,7 +723,7 @@ void RSGViveApp::render() {
 		txt3 = "Are you done adding actors?";
 	}
 	else if (init == 1) {
-		txt2 = "Click left upstage corner of highlighed set piece.";
+		txt2 = "Click right upstage corner of highlighed set piece.";
 		//txt3 = "Are you done setting trackers?";
 		txt3 = "";
 	}
@@ -730,7 +743,7 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 	else if (init == 1) {
 		if (setMode) {
 			tempTextLoc = event.getPos();
-			txt2 = "Place tracker on left upstage corner of highlighted set piece. Click on tracker to confirm.";
+			txt2 = "Place tracker on right upstage corner of highlighted set piece. Click on tracker to confirm.";
 			setMode = false;
 		}
 		else {
@@ -757,7 +770,6 @@ void RSGViveApp::mouseDrag(MouseEvent event) {
 			// check if tracker in square
 			if (rect.contains(tracker.position)) {
 				tracker.select();
-				activeTracker = tracker;
 				addActor = true;
 			}
 		}
@@ -773,21 +785,36 @@ void RSGViveApp::mouseUp(MouseEvent event) {
 	if (init==0) {
 		startHighlightBox = vec2(0, 0);
 		endHighlightBox = vec2(0, 0);
-		if (addActor) {
-			mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum - 1]).updateFn([this] { setTrackerName(actorNames[actorNum - 1]); render(); });
-			mParams->addParam("Pick a Color", mEnumNames, &mEnumSelection)
-				.keyDecr("[")
-				.keyIncr("]")
-				.updateFn([this] { setTrackerColor(); });
-			actorNum++;
+		if (getSelected().size() == 2) {
+			if (addActor) {
+				mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum - 1]).updateFn([this] { setTrackerName(actorNames[actorNum - 1]); render(); });
+				mParams->addParam("Pick a Color", mEnumNames, &mEnumSelection)
+					.keyDecr("[")
+					.keyIncr("]")
+					.updateFn([this] { setTrackerColor(); });
+				actorNum++;
+			}
+			addActor = false;
 		}
-		addActor = false;
+		else {
+			txt2 = "Click and Drag to highlight the *TWO* trackers that represent Actor " + std::to_string(actorNum);
+		}
+		
 	}
+}
+
+vector<Tracker> RSGViveApp::getSelected() {
+	vector<Tracker> temp;
+	for (Tracker &t : trackers) {
+		if (t.selected) {
+			temp.push_back(t);
+		}
+	}
+	return temp;
 }
 
 void RSGViveApp::setTrackerName(std::string name) {
 	for (Tracker &tracker : trackers) {
-		// check if tracker in square
 		if (tracker.selected) {
 			tracker.name = name;
 		}
@@ -797,15 +824,17 @@ void RSGViveApp::setTrackerName(std::string name) {
 
 void RSGViveApp::setTrackerColor() {
 	for (Tracker &tracker : trackers) {
-		// check if tracker in square
 		if (tracker.selected) {
+			dprintf("\nHERE");
+			dprintf("color red BEFORE: %f ", tracker.color.r);
 			tracker.color = colors[mEnumSelection];
+			dprintf("color red AFTER: %f ", tracker.color.r);
 			tracker.actor = true;
-			colors.erase(colors.begin() + mEnumSelection);
-			mEnumNames.erase(mEnumNames.begin() + mEnumSelection);
 			tracker.selected = false;
 		}
 	}
+	colors.erase(colors.begin() + mEnumSelection);
+	mEnumNames.erase(mEnumNames.begin() + mEnumSelection);
 }
 
 void RSGViveApp::clear() {
