@@ -15,8 +15,6 @@
 #include "pathtools.h"
 #include "lodepng.h"
 
-// TODO: wave assets need more white space
-// TODO: get streaming working - SPOUT
 // TODO: add rotation from trackers
 // TODO: add png for blue button
 // TODO: add in HOH logo
@@ -289,9 +287,9 @@ void RSGViveApp::setup()
 	// load floor plan image
 	try {
 		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png"))));
-		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_01_V001_transparent.png"))));
-		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001_transparent.png"))));
-		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_03_V001_transparent.png"))));
+		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_01_V001_transparent2.png"))));
+		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001_transparent2.png"))));
+		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_03_V001_transparent2.png"))));
 
 	}
 	catch (...) {
