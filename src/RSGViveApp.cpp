@@ -898,7 +898,9 @@ void RSGViveApp::draw()
 	}
 
 	// send to Spout
-	mSpoutOut.sendViewport();
+	if (mRecord) {
+		mSpoutOut.sendViewport();
+	}
 
 	mParams->draw();
 }
