@@ -284,12 +284,13 @@ void RSGViveApp::setup()
 
 	setFullScreen(mFullScreen);
 
-	// load floor plan image
+	// load floor plan image & logo
 	try {
 		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png"))));
 		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_01_V001_transparent2.png"))));
 		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001_transparent2.png"))));
 		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_03_V001_transparent2.png"))));
+		mTextureLogo = gl::Texture::create(loadImage(loadAsset("HOH-logo_72dpi_RGB_v01.png")));
 
 	}
 	catch (...) {
@@ -814,6 +815,8 @@ void RSGViveApp::draw()
 {
 	gl::clear( Color::white() ); 
 	gl::color(Color::white());
+
+	gl::draw(mTextureLogo, Rectf(getWindowWidth() * .85, getWindowHeight() * .1, getWindowWidth() * .95, getWindowHeight() *.4));
 
 	if (init == 1) {
 		gl::color(1, 1, 0, .85);
