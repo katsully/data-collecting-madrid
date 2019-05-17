@@ -1,12 +1,13 @@
+// Recording Body Data
+// By Kat Sullivan
+
 #include "cinder/app/App.h"
 #include "cinder/app/RendererGl.h"
 #include "cinder/gl/gl.h"
 #include "cinder/params/Params.h"
 #include "../vc2015/tracker.h"
 #include "cinder/Timer.h"
-#include "CiSpoutOut.h"
 
-// from hellovr_opengl_main.cpp
 #include <Windows.h>
 #include <openvr.h>
 #include "Matrices.h"
@@ -15,15 +16,6 @@
 #include "pathtools.h"
 #include "lodepng.h"
 
-// TODO: add rotation from trackers
-// TODO: add png for blue button
-// TODO: add in HOH logo
-// TODO: Can you change the actor name in the params to the correct color?
-// TODO: make standalone app w/ andrews icon
-// TODO: wake trackers up from standby mode
-
-// MAYBE?
-// Drag and drop feature for the textures
 
 using namespace ci;
 using namespace ci::app;
@@ -57,10 +49,8 @@ class RSGViveApp : public App {
 	void setTrackerName(std::string name);
 	void setTrackerColor();
 	void render();
-	void button();
 	void clear();
 	void fullScreen();
-	void screenShot();	// saves screenshot
 
 	// from hellovr_opengl_main.cpp
 	RSGViveApp(int argc, char *argv[]);
@@ -81,8 +71,6 @@ class RSGViveApp : public App {
 
 	Matrix4 convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPos);
 
-	int mTrailLimit;
-	int mPageNum;
 	bool mRecord;
 	bool mFullScreen = true;
 
@@ -98,25 +86,12 @@ private:
 	float playAreaX, playAreaZ;
 	vector<vector<vec2>> mTrails;
 
-	// Spout
-	SpoutOut mSpoutOut;
-
-	// for the page number
-	Font mFont;
-	gl::TextureFontRef mTextureFont;
-	string txt1="";
-
-	// for the HOH log
-	gl::TextureRef mTextureLogo;
-	vec2 mSizeLogo;
 
 	// For the initizaltion text
 	Font mFontInit;
 	gl::TextureFontRef mTextureFontInit;
 	string txt2 = "";
 	int init = 0;
-	int actorNum = 1;
-	string actorNames[10] = { "", "", "", "", "", "", "", "", "", "" };
 	vector<ColorA> colors = { 
 		// blue
 		ColorA(0,.57,.73, .55),
@@ -132,13 +107,11 @@ private:
 		ColorA(.88, .19, .22,.55),
 		// yellow
 		ColorA(.95, .9, .35,.55) };
-	// Add an enum (list) selector.
-	int mEnumSelection = 0;
-	vector<string> mEnumNames;
-	bool addActor = false;
 
-	vec2 startHighlightBox = vec2(0,0);
-	vec2 endHighlightBox = vec2(0,0);
+	// for the page number
+	Font mFont;
+	gl::TextureFontRef mTextureFont;
+	string txt1 = "";
 
 	// text for "are you done with actors?"
 	Font mFontDone;
@@ -201,6 +174,10 @@ private:
 	vr::VRActionHandle_t m_actionAnalongInput = vr::k_ulInvalidActionHandle;
 
 	vr::VRActionSetHandle_t m_actionsetDemo = vr::k_ulInvalidActionSetHandle;
+
+	// spreadsheet for recording data
+	ofstream myfile;
+	string emotion;
 };
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -251,7 +228,6 @@ RSGViveApp::RSGViveApp(int argc, char *argv[])
 	: m_pHMD(NULL)
 	, chap(NULL)
 	, m_strPoseClasses("")
-	, mSpoutOut("cispout", app::getWindowSize())
 {
 
 	// other initialization tasks are done in BInit
@@ -259,7 +235,6 @@ RSGViveApp::RSGViveApp(int argc, char *argv[])
 }
 
 RSGViveApp::RSGViveApp()
-	: mSpoutOut("cispout", app::getWindowSize())
 {
 
 }
@@ -271,39 +246,39 @@ RSGViveApp::~RSGViveApp()
 {
 	// work is done in Shutdown
 	dprintf("Shutdown");
+	myfile.close(); 
 }
 
 void RSGViveApp::setup()
-{
-	dprintf("\n FIRST %i", colors[5].r);
-	
+{	
 	m_pHMD = NULL;
 	chap = NULL;
 	m_strPoseClasses = "";
-	mPageNum = 1;
 
 	setFullScreen(mFullScreen);
 
-	// load floor plan image & logo
-	try {
-		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Table_V001_transparent.png"))));
-		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_01_V001_transparent2.png"))));
-		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_02_Island_V001_transparent2.png"))));
-		mTextures.push_back(gl::Texture::create(loadImage(loadAsset("HoH_RSG_Waves_03_V001_transparent2.png"))));
-		mTextureLogo = gl::Texture::create(loadImage(loadAsset("HOH-logo_72dpi_RGB_v01.png")));
-
+	// set up spreadhsheet
+	time_t now = time(0);
+	// convert now to string form
+	char* dt = ctime(&now);
+	// convert now to tm struct for UTC
+	tm *gmtm = gmtime(&now);
+	char buffer[32];
+	std::strftime(buffer, 32, "%d-%m-%Y_%H-%M-%S", gmtm);
+	std::string dateString = buffer;
+	std::string fileName = "body_tracking" + dateString + ".csv";
+	myfile.open(fileName);
+	myfile << "Emotion,";
+	vector<std::string> joints = { "Head", "Tracker1", "Tracker2", "RightHand", "LeftHand" };
+	for (std::string s : joints) {
+		myfile << s + "_x,";
+		myfile << s + "_y,";
+		myfile << s + "_z,";
+		myfile << s + "_Orientation_w,";
+		myfile << s + "_Orientation_x,";
+		myfile << s + "_Orientation_y,";
+		myfile << s + "_Orientation_z,";
 	}
-	catch (...) {
-		dprintf("unable to load the texture file!");
-	}
-
-	// quicktime
-	// fs::path path = getSaveFilePath();
-	// if (!path.empty()) {
-		//format = qtime::MovieWriter::Format().codec(qtime::MovieWriter::H2364).fileType(qtime::movieWriter::QUICK_TIME_MOVIE).setTimeScale(250);
-
-		//mMovieExporter = qtime::MovieWriter::create(path, getWindowWidth(), getWindowHeight(), format);
-	// }
 
 	// setting up the text boxes
 	mFont = Font(loadAsset("GothamLight.otf"), 32);
@@ -315,25 +290,16 @@ void RSGViveApp::setup()
 
 	render();
 
-	mTrailLimit = 100;
-	vector<vec2> v = { vec2(0,0) };
-	for (int i = 0; i < 5; i++) {
-		mTrails.push_back(v);
-	}
 	mRecord = false;
 
 	bInit();
 
 	// set up parameters
 	// Create the interface and give it a name
-	mParams = params::InterfaceGl::create(getWindow(), "Ready Set Go", toPixels(ivec2(200, 200)), ColorA(1.0,0,1.0, 0.25));
-	mParams->addParam("Trails", &mTrailLimit);
+	mParams = params::InterfaceGl::create(getWindow(), "Recording Body Data", toPixels(ivec2(200, 200)), ColorA(1.0,0,1.0, 0.25));
 	mParams->addParam("Recording", &mRecord);
-	mParams->addButton("Next Page", bind(&RSGViveApp::button, this));
-	mParams->addButton("Clear Trails", bind(&RSGViveApp::clear, this));
 	mParams->addButton("Toggle Full Screen", bind(&RSGViveApp::fullScreen, this));
-
-	mEnumNames = { "blue", "green", "orange", "pink", "purple", "red", "yellow" };
+	mParams->addParam("Emotion", &emotion);
 }
 
 void RSGViveApp::fullScreen() {
@@ -346,7 +312,6 @@ void RSGViveApp::keyDown(KeyEvent event) {
 	// Key on key...
 	switch (event.getCode()) {
 	case KeyEvent::KEY_s:
-		screenShot();
 		break;
 	}
 }
@@ -452,14 +417,15 @@ void RSGViveApp::printPositionData() {
 
 	// positions(and rotations) are relative to the floor in center of the user's configured play space for the Standing tracking space.
 
-	// Process StreamVR device states
-	for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
-		if (!m_pHMD->IsTrackedDeviceConnected(unDevice)) {
+	// Process SteamVR device states
+	for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++)
+	{
+		if (!m_pHMD->IsTrackedDeviceConnected(unDevice))
 			continue;
-		}
 
 		vr::VRControllerState_t state;
-		if (m_pHMD->GetControllerState(unDevice, &state, sizeof(state))) {
+		if (m_pHMD->GetControllerState(unDevice, &state, sizeof(state)))
+		{
 			vr::TrackedDevicePose_t trackedDevicePose;
 			vr::TrackedDevicePose_t trackedControllerPose;
 			vr::VRControllerState_t controllerState;
@@ -469,20 +435,21 @@ void RSGViveApp::printPositionData() {
 			vr::ETrackedDeviceClass trackedDeviceClass = vr::VRSystem()->GetTrackedDeviceClass(unDevice);
 
 			switch (trackedDeviceClass) {
-			//case vr::ETrackedDeviceClass::TrackedDeviceClass_HMD: vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, &trackedDevicePose, 1);
-			//	// print position data for the HMD
-			//	
-			//	poseMatrix = trackedDevicePose.mDeviceToAbsoluteTracking;	// This matrix contains all positional and rotational data
-			//	position = getPosition(trackedDevicePose.mDeviceToAbsoluteTracking);
-			//	quaternion = getRotation(trackedDevicePose.mDeviceToAbsoluteTracking);
+			case vr::ETrackedDeviceClass::TrackedDeviceClass_HMD:
+				vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, &trackedDevicePose, 1);
+				// print positiona data for the HMD.
+				poseMatrix = trackedDevicePose.mDeviceToAbsoluteTracking; // This matrix contains all positional and rotational data.
+				position = getPosition(trackedDevicePose.mDeviceToAbsoluteTracking);
+				quaternion = getRotation(trackedDevicePose.mDeviceToAbsoluteTracking);
 
-			//	printDevicePositionalData("HMD", poseMatrix, position, quaternion);
+				printDevicePositionalData("HMD", poseMatrix, position, quaternion);
 
+				break;
 
-			//	break;
-
-			case vr::ETrackedDeviceClass::TrackedDeviceClass_GenericTracker: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedDevicePose);
-				// print position data for a general vive tracker
+			case vr::ETrackedDeviceClass::TrackedDeviceClass_GenericTracker:
+				//vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, &trackedDevicePose, 1);
+				vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedDevicePose);
+				// print positiona data for a general vive tracker.
 
 				poseMatrix = trackedDevicePose.mDeviceToAbsoluteTracking;	// This matrix contains all positional and rotational data
 				position = getPosition(trackedDevicePose.mDeviceToAbsoluteTracking);
@@ -494,27 +461,28 @@ void RSGViveApp::printPositionData() {
 				//dprintf("\nSerial number: %s ", serialNumber);
 				//dprintf("\nNumber of trackers: %i ", trackers.size());
 				printDevicePositionalData(serialNumber, poseMatrix, position, quaternion);
-
 				break;
 
-			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller: vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
-				// print position data for hand controllers
-				poseMatrix = trackedControllerPose.mDeviceToAbsoluteTracking;	// This matrix contains all positional and rotational data
+			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller:
+				vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState,
+					sizeof(controllerState), &trackedControllerPose);
+				poseMatrix = trackedControllerPose.mDeviceToAbsoluteTracking; // This matrix contains all positional and rotational data.
 				position = getPosition(trackedControllerPose.mDeviceToAbsoluteTracking);
 				quaternion = getRotation(trackedControllerPose.mDeviceToAbsoluteTracking);
 
 				auto trackedControllerRole = vr::VRSystem()->GetControllerRoleForTrackedDeviceIndex(unDevice);
 				std::string whichHand = "";
-				if (trackedControllerRole == vr::TrackedControllerRole_LeftHand) {
+				if (trackedControllerRole == vr::TrackedControllerRole_LeftHand)
+				{
 					whichHand = "LeftHand";
 				}
-				else if (trackedControllerRole == vr::TrackedControllerRole_RightHand) {
+				else if (trackedControllerRole == vr::TrackedControllerRole_RightHand)
+				{
 					whichHand = "RightHand";
 				}
 
 				switch (trackedControllerRole)
 				{
-
 				case vr::TrackedControllerRole_Invalid:
 					// invalid
 					break;
@@ -524,11 +492,11 @@ void RSGViveApp::printPositionData() {
 					printDevicePositionalData(whichHand.c_str(), poseMatrix, position, quaternion);
 
 					break;
-
 				}
 
 				break;
 			}
+
 		}
 	}
 }
@@ -567,13 +535,22 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos1 = vec2(newX, newZ);
+		//dprintf("\n%s", deviceName);
 
 	} else if (strcmp(deviceName, "RightHand") == 0) {
 		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 		trackerPos2 = vec2(newX, newZ);
+		//dprintf("\n%s", deviceName);
+
+	}
+	else if (strcmp(deviceName, "HMD") == 0) {
+		//dprintf("\n%s", deviceName);
+
 	}
 	else {
+		//dprintf("\n%s", deviceName);
+
 		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
 		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
 
@@ -591,9 +568,35 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		}
 	}
 
+	// Print position and quaternion (rotation).
+	//dprintf("\n%lld, %s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
+		/*qpc.QuadPart, deviceName,
+		position.v[0], position.v[1], position.v[2],
+		quaternion.w, quaternion.x, quaternion.y, quaternion.z);*/
+
+	dprintf("\n%s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
+		deviceName,
+		position.v[0], position.v[1], position.v[2],
+		quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+
+	// if recording, write data to spreadsheet
+	if (mRecord) {
+		if (strcmp(deviceName, "HMD") == 0) {
+			myfile << "\n";
+			myfile << emotion << ",";
+		}
+		myfile << to_string(position.v[0]) + ",";
+		myfile << to_string(position.v[1]) + ",";
+		myfile << to_string(position.v[2]) + ",";
+		myfile << to_string(quaternion.w) + ",";
+		myfile << to_string(quaternion.x) + ",";
+		myfile << to_string(quaternion.y) + ",";
+		myfile << to_string(quaternion.z) + ",";
+	}
+
 	// Uncomment this if you want to print entire transform matrix that contains both position and rotation matrix.
 	//dprintf("\n%lld,%s,%.5f,%.5f,%.5f,x: %.5f,%.5f,%.5f,%.5f,y: %.5f,%.5f,%.5f,%.5f,z: %.5f,qw: %.5f,qx: %.5f,qy: %.5f,qz: %.5f",
-	//    qpc.QuadPart, whichHand.c_str(),
+	//    qpc.QuadPart, deviceName,
 	//    posMatrix.m[0][0], posMatrix.m[0][1], posMatrix.m[0][2], posMatrix.m[0][3],
 	//    posMatrix.m[1][0], posMatrix.m[1][1], posMatrix.m[1][2], posMatrix.m[1][3],
 	//    posMatrix.m[2][0], posMatrix.m[2][1], posMatrix.m[2][2], posMatrix.m[2][3],
@@ -655,10 +658,7 @@ Matrix4 RSGViveApp::convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPo
 
 
 void RSGViveApp::render() {
-	txt1 = "Page " + std::to_string(mPageNum);
-
 	if (init==0) {
-		txt2 = "Click and Drag to highlight the two trackers that represent Actor " + std::to_string(actorNum);
 		txt3 = "Are you done adding actors?";
 	}
 	else if (init == 1) {
@@ -674,9 +674,6 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 		if (rect.contains(event.getPos())) {
 			init = 1;
 			render();
-		}
-		else {
-			startHighlightBox = event.getPos();
 		}
 	}
 	else if (init == 1) {
@@ -703,44 +700,11 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 }
 
 void RSGViveApp::mouseDrag(MouseEvent event) {
-	if (init==0) {
-		endHighlightBox = event.getPos();
-		Rectf rect = Rectf(startHighlightBox, endHighlightBox);
-		for (Tracker &tracker : trackers) {
-			// check if tracker in square
-			if (rect.contains(tracker.position)) {
-				tracker.select();
-				addActor = true;
-			}
-		}
-	}
-}
 
-void RSGViveApp::button() {
-	mPageNum++;
-	render();
 }
 
 void RSGViveApp::mouseUp(MouseEvent event) {
-	if (init==0) {
-		startHighlightBox = vec2(0, 0);
-		endHighlightBox = vec2(0, 0);
-		if (getSelected().size() == 2) {
-			if (addActor) {
-				mParams->addParam("Actor " + std::to_string(actorNum), &actorNames[actorNum - 1]).updateFn([this] { setTrackerName(actorNames[actorNum - 1]); render(); });
-				mParams->addParam("Pick a Color", mEnumNames, &mEnumSelection)
-					.keyDecr("[")
-					.keyIncr("]")
-					.updateFn([this] { setTrackerColor(); });
-				actorNum++;
-			}
-			addActor = false;
-		}
-		else {
-			txt2 = "Click and Drag to highlight the *TWO* trackers that represent Actor " + std::to_string(actorNum);
-		}
-		
-	}
+
 }
 
 vector<Tracker> RSGViveApp::getSelected() {
@@ -765,16 +729,10 @@ void RSGViveApp::setTrackerName(std::string name) {
 void RSGViveApp::setTrackerColor() {
 	for (Tracker &tracker : trackers) {
 		if (tracker.selected) {
-			dprintf("\nHERE");
-			dprintf("color red BEFORE: %f ", tracker.color.r);
-			tracker.color = colors[mEnumSelection];
-			dprintf("color red AFTER: %f ", tracker.color.r);
 			tracker.actor = true;
 			tracker.selected = false;
 		}
 	}
-	colors.erase(colors.begin() + mEnumSelection);
-	mEnumNames.erase(mEnumNames.begin() + mEnumSelection);
 }
 
 void RSGViveApp::clear() {
@@ -805,18 +763,16 @@ void RSGViveApp::update()
 
 }
 
-// Take screen shot
-void RSGViveApp::screenShot()
-{
-	writeImage(getAppPath() / fs::path("frame" + std::to_string(getElapsedFrames()) + ".png"), copyWindowSurface());
-}
-
 void RSGViveApp::draw()
 {
 	gl::clear( Color::white() ); 
 	gl::color(Color::white());
 
-	gl::draw(mTextureLogo, Rectf(getWindowWidth() * .85, getWindowHeight() * .1, getWindowWidth() * .95, getWindowHeight() *.4));
+	// if we are recording data
+	if (mRecord) {
+		gl::color(Color(1, 0, 0));
+		mTextureFont->drawString("RECORDING", vec2(getWindowWidth() * .8, getWindowHeight()*.2));
+	}
 
 	if (init == 1) {
 		gl::color(1, 1, 0, .85);
@@ -857,9 +813,6 @@ void RSGViveApp::draw()
 		mTextureFontInit->drawStringWrapped(txt2, Rectf(getWindowWidth()*.4, getWindowHeight()*.2, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.2 + 300));
 		mTextureFontDone->drawString(txt3, vec2(getWindowWidth()*.4, getWindowHeight()*.45));
 		gl::drawSolidRect(Rectf(getWindowWidth()*.75, getWindowHeight() * .45, getWindowWidth()*.85, getWindowHeight() * .55));
-
-		// draw highlight box
-		gl::drawStrokedRect(Rectf(startHighlightBox.x, startHighlightBox.y, endHighlightBox.x, endHighlightBox.y));
 	}
 
 	// drawing ALL SET
@@ -897,12 +850,6 @@ void RSGViveApp::draw()
 			trailIdx++;
 		}
 	}
-
-	// send to Spout
-	if (mRecord) {
-		mSpoutOut.sendViewport();
-	}
-
 	mParams->draw();
 }
 

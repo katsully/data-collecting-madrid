@@ -368,3 +368,6 @@ ASALocalRun/
 
 # NVidia Nsight GPU debugger configuration file
 *.nvuser
+
+# data files
+*.csv
