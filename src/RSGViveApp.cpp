@@ -51,6 +51,7 @@ class RSGViveApp : public App {
 	void render();
 	void clear();
 	void fullScreen();
+	void record();
 
 	// from hellovr_opengl_main.cpp
 	RSGViveApp(int argc, char *argv[]);
@@ -178,6 +179,7 @@ private:
 	// spreadsheet for recording data
 	ofstream myfile;
 	string emotion;
+	bool warningText = false;
 };
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -297,7 +299,7 @@ void RSGViveApp::setup()
 	// set up parameters
 	// Create the interface and give it a name
 	mParams = params::InterfaceGl::create(getWindow(), "Recording Body Data", toPixels(ivec2(200, 200)), ColorA(1.0,0,1.0, 0.25));
-	mParams->addParam("Recording", &mRecord);
+	mParams->addButton("Recording", bind(&RSGViveApp::record, this));
 	mParams->addButton("Toggle Full Screen", bind(&RSGViveApp::fullScreen, this));
 	mParams->addParam("Emotion", &emotion);
 }
@@ -305,6 +307,21 @@ void RSGViveApp::setup()
 void RSGViveApp::fullScreen() {
 	mFullScreen = !mFullScreen;
 	setFullScreen(mFullScreen);
+}
+
+void RSGViveApp::record() {
+	if (mRecord == false) {
+		if (emotion.empty()) {
+			warningText = true;
+		}
+		else {
+			mRecord = true;
+			warningText = false;
+		}
+	}
+	else {
+		mRecord = false;
+	}
 }
 
 
@@ -750,17 +767,6 @@ void RSGViveApp::update()
 	if (bQuit) {
 		shutdown();
 	}
-
-	// quicktime rendering
-	/*if (mMovieExporter && getElapsedFrames() > 1 && getElapsedFrames() < 100000) {
-		mMovieExporter->addFrame(copyWindowSurface());
-	}
-	else if (mMovieExporter && getElapsedFrames() >= 1000000) {
-		mMovieExporter->finish();
-		mMovieExporter.reset();
-	}*/
-
-
 }
 
 void RSGViveApp::draw()
@@ -786,6 +792,12 @@ void RSGViveApp::draw()
 			mTimer.start();
 		}
 
+	}
+
+	// if user tried to record, but emotion was empty
+	if (warningText) {
+		gl::color(Color(1, 0, 0));
+		mTextureFont->drawString("MUST INPUT EMOTION BEFORE RECORDING", vec2(getWindowWidth() * .7, getWindowHeight()*.2));
 	}
 
 	if (init == 1 || init == 2) {
