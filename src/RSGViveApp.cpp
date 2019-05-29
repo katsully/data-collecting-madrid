@@ -52,6 +52,8 @@ class RSGViveApp : public App {
 	void clear();
 	void fullScreen();
 	void record();
+	bool ProcessVREvent(const vr::VREvent_t & event);
+	void dealWithButtonEvent(const vr::VREvent_t & event);
 
 	// from hellovr_opengl_main.cpp
 	RSGViveApp(int argc, char *argv[]);
@@ -84,14 +86,15 @@ private:
 	vec2 trackerPos4 = vec2(0, 0);
 	vec2 trackerPos5 = vec2(0, 0);
 	vector<Tracker> trackers;
-	float playAreaX, playAreaZ;
+	float playAreaX, playAreaY, playAreaZ;
 	vector<vector<vec2>> mTrails;
 
 
 	// For the initizaltion text
 	Font mFontInit;
 	gl::TextureFontRef mTextureFontInit;
-	string txt2 = "";
+	//string txt2 = "";
+	string initText = "Pull trigger on left hand";
 	int init = 0;
 	vector<ColorA> colors = { 
 		// blue
@@ -393,8 +396,32 @@ bool RSGViveApp::bInit()
 	return true;
 }
 
+bool RSGViveApp::ProcessVREvent(const vr::VREvent_t & event)
+{
+	char* buf = new char[100];
+	bool ret = true;
+	switch (event.eventType)
+	{
+	default:
+		if (event.eventType >= 200 && event.eventType <= 203) //Button events range from 200-203
+			dealWithButtonEvent(event);
+		else
+			sprintf(buf, "\nEVENT--(OpenVR) Event: %d", event.eventType);
+		// Check entire event list starts on line #452: https://github.com/ValveSoftware/openvr/blob/master/headers/openvr.h
+	}
+	return ret;
+}
+
+void RSGViveApp::dealWithButtonEvent(const vr::VREvent_t & event) {
+	switch (event.data.controller.button) {
+		case vr::VREvent_ButtonPress:
+			dprintf("a button was pressed\n");
+	}
+}
+
+
 //-----------------------------------------------------------------------------
-// Purpose:
+// Purpose: Properly shut down the app
 //-----------------------------------------------------------------------------
 void RSGViveApp::shutdown()
 {
@@ -423,7 +450,22 @@ bool RSGViveApp::handleInput()
 	vr::VRActiveActionSet_t actionSet = { 0 };
 	actionSet.ulActionSet = m_actionsetDemo;
 	vr::VRInput()->UpdateActionState(&actionSet, sizeof(actionSet), 1);
-
+	
+	vr::VREvent_t event;
+	
+	if (m_pHMD->PollNextEvent(&event, sizeof(event)))
+	{
+		/*
+		ProcessVREvent is a function defined in this class.  It returns false if
+		the function determines the type of error to be fatal or signal some kind of quit.
+		*/
+		if (!ProcessVREvent(event))
+		{
+			// If ProcessVREvent determined that OpenVR quit, print quit message
+			printf("\nEVENT--(OpenVR) service quit");
+			return false;
+		}
+	}
 	return bRet;
 }
 
@@ -550,14 +592,14 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 	// x axis is left-right, y axis is up-down, z axis is forward-back
 	if (strcmp(deviceName, "LeftHand") == 0) {
 		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
-		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
-		trackerPos1 = vec2(newX, newZ);
+		float newY = getWindowHeight() * ((position.v[2] - -playAreaY) / (playAreaY - -playAreaY));
+		trackerPos1 = vec2(newX, newY);
 		//dprintf("\n%s", deviceName);
 
 	} else if (strcmp(deviceName, "RightHand") == 0) {
 		float newX = getWindowWidth() * ((position.v[0] - -playAreaX) / (playAreaX - -playAreaX));
-		float newZ = getWindowHeight() * ((position.v[2] - -playAreaZ) / (playAreaZ - -playAreaZ));
-		trackerPos2 = vec2(newX, newZ);
+		float newY = getWindowHeight() * ((position.v[2] - -playAreaY) / (playAreaY - -playAreaY));
+		trackerPos2 = vec2(newX, newY);
 		//dprintf("\n%s", deviceName);
 
 	}
@@ -591,10 +633,10 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 		position.v[0], position.v[1], position.v[2],
 		quaternion.w, quaternion.x, quaternion.y, quaternion.z);*/
 
-	dprintf("\n%s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
+	/*dprintf("\n%s, x = %.5f, y = %.5f, z = %.5f, qw = %.5f, qx = %.5f, qy = %.5f, qz = %.5f",
 		deviceName,
 		position.v[0], position.v[1], position.v[2],
-		quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+		quaternion.w, quaternion.x, quaternion.y, quaternion.z);*/
 
 	// if recording, write data to spreadsheet
 	if (mRecord) {
@@ -679,13 +721,12 @@ void RSGViveApp::render() {
 		txt3 = "Are you done adding actors?";
 	}
 	else if (init == 1) {
-		txt2 = "Click right upstage corner of highlighed set piece.";
-		//txt3 = "Are you done setting trackers?";
 		txt3 = "";
 	}
 }
 
 void RSGViveApp::mouseDown(MouseEvent event) {
+
 	if (init==0) {
 		Rectf rect = Rectf(getWindowWidth()*.75, getWindowHeight() * .45, getWindowWidth()*.85, getWindowHeight() * .55);
 		if (rect.contains(event.getPos())) {
@@ -696,7 +737,6 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 	else if (init == 1) {
 		if (setMode) {
 			tempTextLoc = event.getPos();
-			txt2 = "Place tracker on right upstage corner of highlighted set piece. Click on tracker to confirm.";
 			setMode = false;
 		}
 		else {
@@ -707,9 +747,6 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 					tracker.textureIndex = textureIndex;
 					tracker.texPosition = vec2(tempTextLoc.x, tempTextLoc.y);
 					textureIndex++;
-					if(textureIndex )
-					setMode = true;
-					txt2 = "Click left upstage corner of highlighed set piece.";
 				}
 			}
 		}
@@ -787,8 +824,6 @@ void RSGViveApp::draw()
 		}
 		else {
 			init = 2;
-			txt2 = "ALL SET!";
-			txt3 = "";
 			mTimer.start();
 		}
 
@@ -802,11 +837,15 @@ void RSGViveApp::draw()
 
 	if (init == 1 || init == 2) {
 		gl::color(Color::white());
-		for (Tracker tracker: trackers) {
+		for (Tracker tracker : trackers) {
 			if (tracker.textureIndex != -1) {
 				gl::draw(mTextures.at(tracker.textureIndex), Rectf(tracker.position.x - tracker.texPosition.x, tracker.position.y - tracker.texPosition.y, tracker.position.x - tracker.texPosition.x + getWindowWidth(), tracker.position.y - tracker.texPosition.y + getWindowHeight()));
 			}
 		}
+		gl::color(Color(1, 0, 0));
+		gl::drawSolidRect(Rectf(trackerPos1.x, trackerPos1.y, trackerPos1.x + getWindowWidth()*.05, trackerPos1.y + getWindowHeight() * .05));
+		gl::color(Color(0, 1, 0));
+		gl::drawSolidRect(Rectf(trackerPos2.x, trackerPos2.y, trackerPos2.x + getWindowWidth()*.05, trackerPos2.y + getWindowHeight() * .05));
 	}
 
 	int counter = 0;
@@ -822,18 +861,16 @@ void RSGViveApp::draw()
 
 	// init stage
 	if (init==0 || init == 1) {
-		mTextureFontInit->drawStringWrapped(txt2, Rectf(getWindowWidth()*.4, getWindowHeight()*.2, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.2 + 300));
-		mTextureFontDone->drawString(txt3, vec2(getWindowWidth()*.4, getWindowHeight()*.45));
-		gl::drawSolidRect(Rectf(getWindowWidth()*.75, getWindowHeight() * .45, getWindowWidth()*.85, getWindowHeight() * .55));
+		mTextureFontInit->drawStringWrapped(initText, Rectf(getWindowWidth()*.4, getWindowHeight()*.2, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.2 + 300));
 	}
 
 	// drawing ALL SET
-	if (init == 2 && mTimer.getSeconds() < 3) {
+	/*if (init == 2 && mTimer.getSeconds() < 3) {
 		mTextureFontInit->drawStringWrapped(txt2, Rectf(getWindowWidth()*.4, getWindowHeight()*.2, getWindowWidth() *.4 + getWindowWidth() * .3, getWindowHeight() *.2 + 300));
 	}
 	else if (mTimer.getSeconds() > 3) {
 		mTimer.stop();
-	}
+	}*/
 
 	// draw page number
 	gl::color(Color::black());
