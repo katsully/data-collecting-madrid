@@ -413,9 +413,36 @@ bool DataCollectionApp::ProcessVREvent(const vr::VREvent_t & event)
 }
 
 void DataCollectionApp::dealWithButtonEvent(const vr::VREvent_t & event) {
-	switch (event.data.controller.button) {
-		case vr::VREvent_ButtonPress:
-			dprintf("a button was pressed\n");
+
+	switch (event.data.controller.button) 
+	{
+		case vr::k_EButton_SteamVR_Trigger:
+			dprintf("\n%i", event.data.controller);
+			// get the device that triggered the ProcessEvent() 
+			vr::ETrackedDeviceClass trackedDeviceClass =
+				m_pHMD->GetTrackedDeviceClass(event.trackedDeviceIndex);
+			if (trackedDeviceClass != vr::ETrackedDeviceClass::TrackedDeviceClass_Controller) {
+				return; //this is a placeholder, but there isn't a controller 
+						//involved so the rest of the snippet should be skipped
+			}
+			vr::ETrackedControllerRole role =
+				m_pHMD->GetControllerRoleForTrackedDeviceIndex(event.trackedDeviceIndex);
+			if (role == vr::TrackedControllerRole_Invalid) {}
+				// The controller is probably not visible to a base station.
+				//    Invalid role comes up more often than you might think.
+			else if (role == vr::TrackedControllerRole_LeftHand) {
+				dprintf("left hand");
+				if (init == 0) {
+					initText = "All set!";
+				}
+			}
+			else if (role == vr::TrackedControllerRole_RightHand) {
+				dprintf("right hand");
+				if (init == 0) {
+					initText = "Switch hands";
+				}
+
+			}
 	}
 }
 
