@@ -36,7 +36,7 @@ void threadSleep(unsigned long nMilliseconds)
 static bool g_bPrintf = true;
 
 
-class RSGViveApp : public App {
+class DataCollectionApp : public App {
   public:
 	void setup() override;
 	void update() override;
@@ -56,9 +56,9 @@ class RSGViveApp : public App {
 	void dealWithButtonEvent(const vr::VREvent_t & event);
 
 	// from hellovr_opengl_main.cpp
-	RSGViveApp(int argc, char *argv[]);
-	RSGViveApp();
-	virtual ~RSGViveApp();
+	DataCollectionApp(int argc, char *argv[]);
+	DataCollectionApp();
+	virtual ~DataCollectionApp();
 
 	bool bInit();
 	
@@ -229,7 +229,7 @@ void dprintf(const char *fmt, ...)
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
-RSGViveApp::RSGViveApp(int argc, char *argv[])
+DataCollectionApp::DataCollectionApp(int argc, char *argv[])
 	: m_pHMD(NULL)
 	, chap(NULL)
 	, m_strPoseClasses("")
@@ -239,7 +239,7 @@ RSGViveApp::RSGViveApp(int argc, char *argv[])
 	memset(m_rDevClassChar, 0, sizeof(m_rDevClassChar));
 }
 
-RSGViveApp::RSGViveApp()
+DataCollectionApp::DataCollectionApp()
 {
 
 }
@@ -247,14 +247,14 @@ RSGViveApp::RSGViveApp()
 //-----------------------------------------------------------------------------
 // Purpose: Destructor
 //-----------------------------------------------------------------------------
-RSGViveApp::~RSGViveApp()
+DataCollectionApp::~DataCollectionApp()
 {
 	// work is done in Shutdown
 	dprintf("Shutdown");
 	myfile.close(); 
 }
 
-void RSGViveApp::setup()
+void DataCollectionApp::setup()
 {	
 	m_pHMD = NULL;
 	chap = NULL;
@@ -302,17 +302,17 @@ void RSGViveApp::setup()
 	// set up parameters
 	// Create the interface and give it a name
 	mParams = params::InterfaceGl::create(getWindow(), "Recording Body Data", toPixels(ivec2(200, 200)), ColorA(1.0,0,1.0, 0.25));
-	mParams->addButton("Recording", bind(&RSGViveApp::record, this));
-	mParams->addButton("Toggle Full Screen", bind(&RSGViveApp::fullScreen, this));
+	mParams->addButton("Recording", bind(&DataCollectionApp::record, this));
+	mParams->addButton("Toggle Full Screen", bind(&DataCollectionApp::fullScreen, this));
 	mParams->addParam("Emotion", &emotion);
 }
 
-void RSGViveApp::fullScreen() {
+void DataCollectionApp::fullScreen() {
 	mFullScreen = !mFullScreen;
 	setFullScreen(mFullScreen);
 }
 
-void RSGViveApp::record() {
+void DataCollectionApp::record() {
 	if (mRecord == false) {
 		if (emotion.empty()) {
 			warningText = true;
@@ -328,7 +328,7 @@ void RSGViveApp::record() {
 }
 
 
-void RSGViveApp::keyDown(KeyEvent event) {
+void DataCollectionApp::keyDown(KeyEvent event) {
 	// Key on key...
 	switch (event.getCode()) {
 	case KeyEvent::KEY_s:
@@ -356,7 +356,7 @@ std::string GetTrackedDeviceString(vr::TrackedDeviceIndex_t unDevice, vr::Tracke
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-bool RSGViveApp::bInit()
+bool DataCollectionApp::bInit()
 {
 
 	// Loading the SteamVR Runtime
@@ -396,7 +396,7 @@ bool RSGViveApp::bInit()
 	return true;
 }
 
-bool RSGViveApp::ProcessVREvent(const vr::VREvent_t & event)
+bool DataCollectionApp::ProcessVREvent(const vr::VREvent_t & event)
 {
 	char* buf = new char[100];
 	bool ret = true;
@@ -412,7 +412,7 @@ bool RSGViveApp::ProcessVREvent(const vr::VREvent_t & event)
 	return ret;
 }
 
-void RSGViveApp::dealWithButtonEvent(const vr::VREvent_t & event) {
+void DataCollectionApp::dealWithButtonEvent(const vr::VREvent_t & event) {
 	switch (event.data.controller.button) {
 		case vr::VREvent_ButtonPress:
 			dprintf("a button was pressed\n");
@@ -423,7 +423,7 @@ void RSGViveApp::dealWithButtonEvent(const vr::VREvent_t & event) {
 //-----------------------------------------------------------------------------
 // Purpose: Properly shut down the app
 //-----------------------------------------------------------------------------
-void RSGViveApp::shutdown()
+void DataCollectionApp::shutdown()
 {
 	if (m_pHMD)
 	{
@@ -436,7 +436,7 @@ void RSGViveApp::shutdown()
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-bool RSGViveApp::handleInput()
+bool DataCollectionApp::handleInput()
 {
 	//SDL_Event sdlEvent;
 	bool bRet = false;
@@ -472,7 +472,7 @@ bool RSGViveApp::handleInput()
 //-----------------------------------------------------------------------------
 // Purpose: Prints out position (x,y,z) and rotation (qw.qx.qy.qz) into console
 //-----------------------------------------------------------------------------
-void RSGViveApp::printPositionData() {
+void DataCollectionApp::printPositionData() {
 
 	// positions(and rotations) are relative to the floor in center of the user's configured play space for the Standing tracking space.
 
@@ -560,7 +560,7 @@ void RSGViveApp::printPositionData() {
 	}
 }
 
-vr::HmdQuaternion_t RSGViveApp::getRotation(vr::HmdMatrix34_t matrix) {
+vr::HmdQuaternion_t DataCollectionApp::getRotation(vr::HmdMatrix34_t matrix) {
 	vr::HmdQuaternion_t q;
 
 	q.w = sqrt(fmax(0, 1 + matrix.m[0][0] + matrix.m[1][1] + matrix.m[2][2])) / 2;
@@ -573,7 +573,7 @@ vr::HmdQuaternion_t RSGViveApp::getRotation(vr::HmdMatrix34_t matrix) {
 	return q;
 }
 
-vr::HmdVector3_t RSGViveApp::getPosition(vr::HmdMatrix34_t matrix) {
+vr::HmdVector3_t DataCollectionApp::getPosition(vr::HmdMatrix34_t matrix) {
 	vr::HmdVector3_t vector;
 
 	vector.v[0] = matrix.m[0][3];
@@ -583,7 +583,7 @@ vr::HmdVector3_t RSGViveApp::getPosition(vr::HmdMatrix34_t matrix) {
 	return vector;
 }
 
-void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::HmdVector3_t position, vr::HmdQuaternion_t quaternion) {
+void DataCollectionApp::printDevicePositionalData(const char * deviceName, vr::HmdMatrix34_t posMatrix, vr::HmdVector3_t position, vr::HmdQuaternion_t quaternion) {
 	LARGE_INTEGER qpc; // Query Performance Counter for Acquiring high-resolution time stamps.
 					   // From MSDN: "QPC is typically the best method to use to time-stamp events and 
 					   // measure small time intervals that occur on the same system or virtual machine.
@@ -665,7 +665,7 @@ void RSGViveApp::printDevicePositionalData(const char * deviceName, vr::HmdMatri
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-void RSGViveApp::updateHMDMatrixPose()
+void DataCollectionApp::updateHMDMatrixPose()
 {
 	if (!m_pHMD)
 		return;
@@ -704,7 +704,7 @@ void RSGViveApp::updateHMDMatrixPose()
 //-----------------------------------------------------------------------------
 // Purpose: Converts a SteamVR matrix to our local matrix class
 //-----------------------------------------------------------------------------
-Matrix4 RSGViveApp::convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPose)
+Matrix4 DataCollectionApp::convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPose)
 {
 	Matrix4 matrixObj(
 		matPose.m[0][0], matPose.m[1][0], matPose.m[2][0], 0.0,
@@ -716,7 +716,7 @@ Matrix4 RSGViveApp::convertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPo
 }
 
 
-void RSGViveApp::render() {
+void DataCollectionApp::render() {
 	if (init==0) {
 		txt3 = "Are you done adding actors?";
 	}
@@ -725,7 +725,7 @@ void RSGViveApp::render() {
 	}
 }
 
-void RSGViveApp::mouseDown(MouseEvent event) {
+void DataCollectionApp::mouseDown(MouseEvent event) {
 
 	if (init==0) {
 		Rectf rect = Rectf(getWindowWidth()*.75, getWindowHeight() * .45, getWindowWidth()*.85, getWindowHeight() * .55);
@@ -753,15 +753,15 @@ void RSGViveApp::mouseDown(MouseEvent event) {
 	}
 }
 
-void RSGViveApp::mouseDrag(MouseEvent event) {
+void DataCollectionApp::mouseDrag(MouseEvent event) {
 
 }
 
-void RSGViveApp::mouseUp(MouseEvent event) {
+void DataCollectionApp::mouseUp(MouseEvent event) {
 
 }
 
-vector<Tracker> RSGViveApp::getSelected() {
+vector<Tracker> DataCollectionApp::getSelected() {
 	vector<Tracker> temp;
 	for (Tracker &t : trackers) {
 		if (t.selected) {
@@ -771,7 +771,7 @@ vector<Tracker> RSGViveApp::getSelected() {
 	return temp;
 }
 
-void RSGViveApp::setTrackerName(std::string name) {
+void DataCollectionApp::setTrackerName(std::string name) {
 	for (Tracker &tracker : trackers) {
 		if (tracker.selected) {
 			tracker.name = name;
@@ -780,7 +780,7 @@ void RSGViveApp::setTrackerName(std::string name) {
 }
 
 
-void RSGViveApp::setTrackerColor() {
+void DataCollectionApp::setTrackerColor() {
 	for (Tracker &tracker : trackers) {
 		if (tracker.selected) {
 			tracker.actor = true;
@@ -789,13 +789,13 @@ void RSGViveApp::setTrackerColor() {
 	}
 }
 
-void RSGViveApp::clear() {
+void DataCollectionApp::clear() {
 	for (vector<vec2> &t : mTrails) {
 		t.clear();
 	}
 }
 
-void RSGViveApp::update()
+void DataCollectionApp::update()
 {
 	bool bQuit = false;
 
@@ -806,7 +806,7 @@ void RSGViveApp::update()
 	}
 }
 
-void RSGViveApp::draw()
+void DataCollectionApp::draw()
 {
 	gl::clear( Color::white() ); 
 	gl::color(Color::white());
@@ -902,4 +902,4 @@ void RSGViveApp::draw()
 	mParams->draw();
 }
 
-CINDER_APP( RSGViveApp, RendererGl )
+CINDER_APP( DataCollectionApp, RendererGl )
